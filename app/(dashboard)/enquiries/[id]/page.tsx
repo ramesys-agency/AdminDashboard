@@ -1,13 +1,24 @@
-import React from "react";
-import { notFound } from "next/navigation";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getEnquiryById } from "@/app/actions/ramesys";
+import { apiClient } from "@/lib/api-client";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+type EnquiryDetail = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  message: string | null;
+  status: string;
+  createdAt: string;
+};
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -18,11 +29,39 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-export default async function EnquiryDetailPage({ params }: Props) {
-  const { id } = await params;
-  const enquiry = await getEnquiryById(id);
+export default function EnquiryDetailPage() {
+  const { id } = useParams();
+  const [enquiry, setEnquiry] = useState<EnquiryDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!enquiry) return notFound();
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      apiClient.get<EnquiryDetail>(`/ramesys/enquiries/${id}`)
+        .then(setEnquiry)
+        .catch((err) => console.error("Failed to fetch enquiry:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!enquiry) {
+    return (
+      <div className="text-center py-20 border rounded-xl border-dashed">
+        <p className="text-muted-foreground">Enquiry not found.</p>
+        <Link href="/enquiries" className="mt-4 inline-block">
+          <Button variant="outline">Back to Enquiries</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     RESOLVED: "default",
@@ -54,7 +93,6 @@ export default async function EnquiryDetailPage({ params }: Props) {
           <DetailRow label="Name" value={enquiry.name} />
           <DetailRow label="Email" value={<a href={`mailto:${enquiry.email}`} className="text-primary hover:underline">{enquiry.email}</a>} />
           <DetailRow label="Phone" value={enquiry.phone ? <a href={`tel:${enquiry.phone}`} className="text-primary hover:underline">{enquiry.phone}</a> : null} />
-          <DetailRow label="Status" value={<Badge variant={statusVariants[enquiry.status] ?? "outline"}>{enquiry.status}</Badge>} />
           <DetailRow label="Received On" value={new Date(enquiry.createdAt).toLocaleString()} />
         </CardContent>
       </Card>

@@ -41,7 +41,7 @@ export function LoginForm() {
 
       login(data.accessToken, data.refreshToken, data.user);
       router.push("/dashboard");
-    } catch (err) {
+    } catch {
       setError("An unexpected error occurred. Please try again.");
     } finally {
       setIsPending(false);

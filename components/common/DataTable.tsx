@@ -8,6 +8,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { PaginationMetadata } from "@/lib/api-client";
 
 interface Column<T> {
   header: string;
@@ -18,12 +21,16 @@ interface DataTableProps<T> {
   data: T[];
   columns: Column<T>[];
   keyExtractor: (row: T) => string;
+  metadata?: PaginationMetadata;
+  onPageChange?: (page: number) => void;
 }
 
 export function DataTable<T>({
   data,
   columns,
   keyExtractor,
+  metadata,
+  onPageChange,
 }: DataTableProps<T>) {
   if (!data || data.length === 0) {
     return (
@@ -32,6 +39,9 @@ export function DataTable<T>({
       </Card>
     );
   }
+
+  const startIdx = metadata ? (metadata.page - 1) * metadata.limit + 1 : 1;
+  const endIdx = metadata ? Math.min(metadata.page * metadata.limit, metadata.total) : data.length;
 
   return (
     <Card className="mt-4 overflow-hidden border">
@@ -70,6 +80,39 @@ export function DataTable<T>({
           </TableBody>
         </Table>
       </div>
+
+      {metadata && (
+        <div className="flex items-center justify-between px-6 py-3 border-t bg-slate-50/50">
+          <div className="text-xs text-muted-foreground">
+            Showing <span className="font-medium text-foreground">{startIdx}</span> to{" "}
+            <span className="font-medium text-foreground">{endIdx}</span> of{" "}
+            <span className="font-medium text-foreground">{metadata.total}</span> entries
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={metadata.page <= 1}
+              onClick={() => onPageChange?.(metadata.page - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-xs font-medium px-2">
+              Page {metadata.page} of {metadata.pages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              disabled={metadata.page >= metadata.pages}
+              onClick={() => onPageChange?.(metadata.page + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   );
 }

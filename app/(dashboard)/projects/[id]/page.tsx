@@ -1,7 +1,9 @@
-import React from "react";
-import { notFound } from "next/navigation";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getProjectById } from "@/app/actions/ramesys";
+import { apiClient } from "@/lib/api-client";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +11,66 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+type ProjectDetail = {
+  id: string;
+  name: string;
+  description: string | null;
+  status: string;
+  budget: number | null;
+  startDate: string | null;
+  endDate: string | null;
+  client: { id: string; name: string };
+  payments: Array<{
+    id: string;
+    amount: number;
+    status: string;
+    method: string | null;
+    createdAt: string;
+  }>;
+  invoices: Array<{
+    id: string;
+    amount: number;
+    status: string;
+    dueDate: string | null;
+    invoiceLink: string | null;
+  }>;
+};
 
-export default async function ProjectDetailPage({ params }: Props) {
-  const { id } = await params;
-  const project = await getProjectById(id);
+export default function ProjectDetailPage() {
+  const { id } = useParams();
+  const [project, setProject] = useState<ProjectDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!project) return notFound();
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      apiClient.get<ProjectDetail>(`/ramesys/projects/${id}`)
+        .then(setProject)
+        .catch((err) => console.error("Failed to fetch project:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!project) {
+    return (
+      <div className="text-center py-20 border rounded-xl border-dashed">
+        <p className="text-muted-foreground">Project not found.</p>
+        <Link href="/projects" className="mt-4 inline-block">
+          <Button variant="outline">Back to Projects</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const totalPaid = project.payments.reduce((s, p) => s + p.amount, 0);
   const invoicesTotal = project.invoices.reduce((s, i) => s + i.amount, 0);

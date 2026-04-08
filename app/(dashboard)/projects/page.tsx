@@ -1,22 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
+import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import { getProjects } from "@/app/actions/ramesys";
+import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
+import { Eye, Plus } from "lucide-react";
 
 type ProjectRow = {
   id: string;
   name: string;
   status: string;
   budget: number | null;
-  startDate: Date | null;
-  endDate: Date | null;
+  startDate: string | null;
+  endDate: string | null;
   client: { id: string; name: string } | null;
 };
 
@@ -36,19 +37,45 @@ function StatusBadge({ status }: { status: string }) {
 export default function ProjectsPage() {
   const { activeBusiness } = useBusiness();
   const [data, setData] = useState<ProjectRow[]>([]);
+  const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (activeBusiness === "ramesys") {
-      setLoading(true);
-      getProjects()
-        .then((d) => setData(d as ProjectRow[]))
-        .finally(() => setLoading(false));
+  // Query state
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
+  const fetchData = useCallback(async (p: number, q: string, status: string) => {
+    if (activeBusiness !== "ramesys") return;
+    
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: p.toString(),
+        limit: "10",
+        ...(q && { q }),
+        ...(status !== "all" && { status }),
+      });
+      
+      const res = await apiClient.get<PaginatedResponse<ProjectRow>>(`/ramesys/projects?${query}`);
+      setData(res.data);
+      setMetadata(res.metadata);
+    } catch (err) {
+      console.error("Failed to fetch projects:", err);
+    } finally {
+      setLoading(false);
     }
   }, [activeBusiness]);
 
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData(page, search, statusFilter);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [page, search, statusFilter, fetchData]);
+
   const columns = [
-    { header: "ID", accessor: (row: ProjectRow) => row.id.slice(-6).toUpperCase() },
+    { header: "ID", accessor: "id" as const },
     { header: "Project Name", accessor: "name" as const },
     { header: "Client", accessor: (row: ProjectRow) => row.client?.name || "N/A" },
     { header: "Budget", accessor: (row: ProjectRow) => row.budget ? `₹${row.budget.toLocaleString()}` : "N/A" },
@@ -66,12 +93,49 @@ export default function ProjectsPage() {
     },
   ];
 
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1);
+  };
+
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+    setPage(1);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-10">
       <PageHeader
         title="Projects"
         description="Track and manage all IT service projects."
+        action={
+          <Link href="/projects/new">
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Create Project
+            </Button>
+          </Link>
+        }
       />
+
+      {activeBusiness === "ramesys" && (
+        <TableControls 
+          onSearch={handleSearch} 
+          searchValue={search}
+          placeholder="Search projects..."
+        >
+          <select 
+            className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={statusFilter}
+            onChange={handleStatusChange}
+          >
+            <option value="all">All Status</option>
+            <option value="PENDING">Pending</option>
+            <option value="IN_PROGRESS">In Progress</option>
+            <option value="COMPLETED">Completed</option>
+          </select>
+        </TableControls>
+      )}
 
       {activeBusiness === "ramesys" ? (
         loading ? (
@@ -81,6 +145,8 @@ export default function ProjectsPage() {
             data={data}
             columns={columns}
             keyExtractor={(row) => row.id}
+            metadata={metadata}
+            onPageChange={setPage}
           />
         )
       ) : (

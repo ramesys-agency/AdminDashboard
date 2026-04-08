@@ -1,7 +1,9 @@
-import React from "react";
-import { notFound } from "next/navigation";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getInvoiceById } from "@/app/actions/ramesys";
+import { apiClient } from "@/lib/api-client";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,14 +11,58 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Loader2 } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+type InvoiceDetail = {
+  id: string;
+  amount: number;
+  status: string;
+  dueDate: string | null;
+  createdAt: string;
+  invoiceLink: string | null;
+  project: { id: string; name: string; status: string } | null;
+  payments: Array<{
+    id: string;
+    amount: number;
+    status: string;
+    method: string | null;
+    createdAt: string;
+  }>;
+};
 
-export default async function InvoiceDetailPage({ params }: Props) {
-  const { id } = await params;
-  const invoice = await getInvoiceById(id);
+export default function InvoiceDetailPage() {
+  const { id } = useParams();
+  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!invoice) return notFound();
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      apiClient.get<InvoiceDetail>(`/ramesys/invoices/${id}`)
+        .then(setInvoice)
+        .catch((err) => console.error("Failed to fetch invoice:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!invoice) {
+    return (
+      <div className="text-center py-20 border rounded-xl border-dashed">
+        <p className="text-muted-foreground">Invoice not found.</p>
+        <Link href="/invoices" className="mt-4 inline-block">
+          <Button variant="outline">Back to Invoices</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     PAID: "default",

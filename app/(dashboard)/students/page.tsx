@@ -17,7 +17,7 @@ export default function StudentsPage() {
     { header: "Joined", accessor: "joined" as const },
     { 
       header: "Status", 
-      accessor: (row: any) => (
+      accessor: (row: { status: string }) => (
         <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
           row.status === 'Active' 
             ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 

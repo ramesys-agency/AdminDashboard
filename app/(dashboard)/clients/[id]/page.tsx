@@ -1,7 +1,9 @@
-import React from "react";
-import { notFound } from "next/navigation";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getClientById } from "@/app/actions/ramesys";
+import { apiClient } from "@/lib/api-client";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,15 +16,61 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+type ClientDetail = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  company: string | null;
+  createdAt: string;
+  projects: Array<{
+    id: string;
+    name: string;
+    status: string;
+    budget: number | null;
+    startDate: string | null;
+    payments: Array<{ id: string; amount: number; status: string; createdAt: string }>;
+    invoices: Array<{ id: string; amount: number; status: string; dueDate: string | null }>;
+  }>;
+};
 
-export default async function ClientDetailPage({ params }: Props) {
-  const { id } = await params;
-  const client = await getClientById(id);
+export default function ClientDetailPage() {
+  const { id } = useParams();
+  const [client, setClient] = useState<ClientDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!client) return notFound();
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      apiClient.get<ClientDetail>(`/ramesys/clients/${id}`)
+        .then(setClient)
+        .catch((err) => {
+          console.error("Failed to fetch client:", err);
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!client) {
+    return (
+      <div className="text-center py-20 border rounded-xl border-dashed">
+        <p className="text-muted-foreground">Client not found.</p>
+        <Link href="/clients" className="mt-4 inline-block">
+          <Button variant="outline">Back to Clients</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const totalBudget = client.projects.reduce(
     (sum, p) => sum + (p.budget ?? 0),
@@ -175,7 +223,6 @@ export default async function ClientDetailPage({ params }: Props) {
                 <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">ID</TableHead>
                 <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Amount</TableHead>
                 <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Status</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Method</TableHead>
                 <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Project</TableHead>
                 <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Date</TableHead>
               </TableRow>
@@ -184,7 +231,7 @@ export default async function ClientDetailPage({ params }: Props) {
               {client.projects.flatMap((p) => p.payments).length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={6}
+                    colSpan={5}
                     className="text-center text-muted-foreground py-8"
                   >
                     No payments found.
@@ -206,7 +253,6 @@ export default async function ClientDetailPage({ params }: Props) {
                       <TableCell className="px-6 py-4">
                         <Badge variant="outline">{pay.status}</Badge>
                       </TableCell>
-                      <TableCell className="px-6 py-4">{pay.method || "N/A"}</TableCell>
                       <TableCell className="px-6 py-4">{pay.projectName}</TableCell>
                       <TableCell className="px-6 py-4">
                         {new Date(pay.createdAt).toLocaleDateString()}

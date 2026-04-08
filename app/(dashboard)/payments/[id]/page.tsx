@@ -1,13 +1,27 @@
-import React from "react";
-import { notFound } from "next/navigation";
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
-import { getPaymentById } from "@/app/actions/ramesys";
+import { apiClient } from "@/lib/api-client";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
-type Props = { params: Promise<{ id: string }> };
+type PaymentDetail = {
+  id: string;
+  amount: number;
+  status: string;
+  method: string | null;
+  createdAt: string;
+  project: { id: string; name: string } | null;
+  invoice: { id: string } | null;
+  student: { name: string } | null;
+  agent: { name: string; code: string } | null;
+  coupon: { code: string; discountPercent: number } | null;
+};
 
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -18,11 +32,39 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
-export default async function PaymentDetailPage({ params }: Props) {
-  const { id } = await params;
-  const payment = await getPaymentById(id);
+export default function PaymentDetailPage() {
+  const { id } = useParams();
+  const [payment, setPayment] = useState<PaymentDetail | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!payment) return notFound();
+  useEffect(() => {
+    if (id) {
+      setLoading(true);
+      apiClient.get<PaymentDetail>(`/ramesys/payments/${id}`)
+        .then(setPayment)
+        .catch((err) => console.error("Failed to fetch payment:", err))
+        .finally(() => setLoading(false));
+    }
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!payment) {
+    return (
+      <div className="text-center py-20 border rounded-xl border-dashed">
+        <p className="text-muted-foreground">Payment not found.</p>
+        <Link href="/payments" className="mt-4 inline-block">
+          <Button variant="outline">Back to Payments</Button>
+        </Link>
+      </div>
+    );
+  }
 
   const statusVariants: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
     COMPLETED: "default",
