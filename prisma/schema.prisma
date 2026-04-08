@@ -41,8 +41,10 @@ model Business {
   coupons   Coupon[]
   invoices  Invoice[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Client {
@@ -56,8 +58,10 @@ model Client {
 
   projects Project[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Project {
@@ -77,8 +81,10 @@ model Project {
   invoices Invoice[]
   payments Payment[] // Payments towards this project
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Invoice {
@@ -95,8 +101,10 @@ model Invoice {
 
   payments Payment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Student {
@@ -111,8 +119,10 @@ model Student {
   enrollments CourseEnrollment[]
   payments    Payment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Course {
@@ -126,8 +136,10 @@ model Course {
 
   enrollments CourseEnrollment[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model CourseEnrollment {
@@ -139,8 +151,10 @@ model CourseEnrollment {
 
   status String // ENROLLED, COMPLETED, DROPPED
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Agent {
@@ -157,8 +171,10 @@ model Agent {
 
   payments Payment[] // Payments made using this agent's code
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Coupon {
@@ -174,8 +190,10 @@ model Coupon {
 
   payments Payment[] // Payments made using this coupon
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Enquiry {
@@ -190,8 +208,10 @@ model Enquiry {
 
   status String @default("NEW") // NEW, CONTACTED, RESOLVED
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }
 
 model Payment {
@@ -223,6 +243,8 @@ model Payment {
   couponId String?
   coupon   Coupon? @relation(fields: [couponId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
 }

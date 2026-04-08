@@ -2,16 +2,32 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useBusiness } from "../../app/context/BusinessContext";
-import { Building2, Bell, Search, User } from "lucide-react";
+import { useBusiness } from "@/context/BusinessContext";
+import { Building2, Bell, Search, User, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function TopNavbar() {
   const { activeBusiness, setActiveBusiness } = useBusiness();
+  const { user, logout } = useAuth();
   const router = useRouter();
 
   const handleSwitchBusiness = (business: "vydhra" | "ramesys") => {
     setActiveBusiness(business);
     router.push("/dashboard");
+  };
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
   };
 
   return (
@@ -59,9 +75,30 @@ export function TopNavbar() {
             <Bell className="w-5 h-5" />
             <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-900"></span>
           </button>
-          <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium">
-            <User className="w-5 h-5" />
-          </div>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center text-blue-600 dark:text-blue-400 font-medium hover:ring-2 hover:ring-blue-500/20 transition-all outline-none cursor-pointer">
+              <User className="w-4 h-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="font-normal">
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium leading-none">{user?.name || "Admin User"}</p>
+                    <p className="text-xs leading-none text-muted-foreground">{user?.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={handleLogout}
+                className="text-red-600 dark:text-red-400 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-900/20 cursor-pointer"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </header>

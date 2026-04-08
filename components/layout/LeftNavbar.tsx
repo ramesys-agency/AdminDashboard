@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useBusiness } from "../../app/context/BusinessContext";
+import { useBusiness } from "@/context/BusinessContext";
 import {
   LayoutDashboard,
   Users,
@@ -58,13 +58,15 @@ export function LeftNavbar() {
                 href={link.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? activeBusiness === "vydhra" 
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300" 
+                    ? activeBusiness === "vydhra"
+                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
                       : "bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
                     : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? "" : "text-gray-400 dark:text-gray-500"}`} />
+                <Icon
+                  className={`w-5 h-5 ${isActive ? "" : "text-gray-400 dark:text-gray-500"}`}
+                />
                 {link.name}
               </Link>
             );
