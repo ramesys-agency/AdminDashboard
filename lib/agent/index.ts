@@ -7,7 +7,11 @@ export type GetAgentsParams = {
   search?: string;
 };
 
-export async function getAgents({ page = 1, limit = 10, search }: GetAgentsParams = {}) {
+export async function getAgents({
+  page = 1,
+  limit = 10,
+  search,
+}: GetAgentsParams = {}) {
   const skip = (page - 1) * limit;
 
   const vydhra = await prisma.business.findFirst({
@@ -73,11 +77,14 @@ export async function getAgentById(id: string) {
   });
 }
 
-export async function updateAgentStatistics(id: string, data: { 
-  totalPaid?: { increment: number }, 
-  additionalAmount?: number,
-  totalEarned?: { increment: number }
-}) {
+export async function updateAgentStatistics(
+  id: string,
+  data: {
+    totalPaid?: { increment: number };
+    additionalAmount?: number;
+    totalEarned?: { increment: number };
+  },
+) {
   const agent = await prisma.agent.findUnique({
     where: { id },
     select: { id: true },
@@ -91,22 +98,63 @@ export async function updateAgentStatistics(id: string, data: {
   });
 }
 
-export async function incrementAgentEarnings(agentId: string, paymentAmount: number) {
+export async function incrementAgentEarnings(
+  agentId: string,
+  paymentAmount: number,
+) {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
     select: { commissionType: true, commissionValue: true },
   });
-
   if (!agent) return;
 
-  const commission = agent.commissionType === "PERCENTAGE" 
-    ? (paymentAmount * (agent.commissionValue || 0)) / 100 
-    : (agent.commissionValue || 0);
+  const commission =
+    agent.commissionType === "PERCENTAGE"
+      ? (paymentAmount * (agent.commissionValue || 0)) / 100
+      : agent.commissionValue || 0;
 
   return prisma.agent.update({
     where: { id: agentId },
     data: {
-      totalEarned: { increment: commission }
-    }
+      totalEarned: { increment: commission },
+    },
+  });
+}
+
+export async function createAgent(data: {
+  name: string;
+  email: string;
+  phone?: string | null;
+  code: string;
+  commissionType: "PERCENTAGE" | "FLAT";
+  commissionValue: number;
+}) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  return prisma.$transaction(async (tx) => {
+    // Create the Agent
+    const agent = await tx.agent.create({
+      data: {
+        ...data,
+        businessId: vydhra.id,
+      },
+    });
+
+    // Create a corresponding Coupon
+    await tx.coupon.create({
+      data: {
+        code: data.code,
+        discountType: data.commissionType as "PERCENTAGE" | "FLAT",
+        discountValue: data.commissionValue,
+        businessId: vydhra.id,
+      },
+    });
+
+    return agent;
   });
 }

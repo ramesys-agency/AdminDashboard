@@ -79,3 +79,19 @@ export async function getCourseById(id: string) {
     },
   };
 }
+
+export async function createCourse(data: { name: string; description?: string | null; price: number }) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  return prisma.course.create({
+    data: {
+      ...data,
+      businessId: vydhra.id,
+    },
+  });
+}

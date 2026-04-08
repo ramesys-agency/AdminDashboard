@@ -61,3 +61,18 @@ export async function getStudentById(id: string) {
     },
   });
 }
+export async function createStudent(data: { name: string; email: string; phone?: string | null }) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  return prisma.student.create({
+    data: {
+      ...data,
+      businessId: vydhra.id,
+    },
+  });
+}

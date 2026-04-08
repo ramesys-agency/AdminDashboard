@@ -65,3 +65,26 @@ export async function getCouponById(id: string) {
     },
   });
 }
+
+export async function createCoupon(data: {
+  code: string;
+  discountType: "PERCENTAGE" | "FLAT";
+  discountValue: number;
+  maxUses?: number | null;
+  validUntil?: string | null;
+}) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  return prisma.coupon.create({
+    data: {
+      ...data,
+      businessId: vydhra.id,
+      validUntil: data.validUntil ? new Date(data.validUntil) : null,
+    },
+  });
+}

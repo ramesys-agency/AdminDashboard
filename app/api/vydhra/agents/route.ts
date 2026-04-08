@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/handler";
-import { getAgents } from "@/lib/agent";
+import { createAgent, getAgents } from "@/lib/agent";
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url);
@@ -10,4 +10,10 @@ export const GET = withAuth(async (req) => {
 
   const result = await getAgents({ page, limit, search });
   return NextResponse.json(result);
+});
+
+export const POST = withAuth(async (req) => {
+  const body = await req.json();
+  const agent = await createAgent(body);
+  return NextResponse.json(agent);
 });

@@ -70,8 +70,21 @@ export async function getInvoiceById(id: string) {
   return prisma.invoice.findUnique({
     where: { id },
     include: {
-      project: true,
+      business: true,
+      project: {
+        include: {
+          client: true,
+        },
+      },
       payments: {
+        include: {
+          student: true,
+          courseEnrollment: {
+            include: {
+              course: true,
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },

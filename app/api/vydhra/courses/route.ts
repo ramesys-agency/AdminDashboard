@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "@/lib/api/handler";
-import { getCourses } from "@/lib/course";
+import { createCourse, getCourses } from "@/lib/course";
 
 export const GET = withAuth(async (req) => {
   const { searchParams } = new URL(req.url);
@@ -10,4 +10,10 @@ export const GET = withAuth(async (req) => {
 
   const result = await getCourses({ page, limit, search });
   return NextResponse.json(result);
+});
+
+export const POST = withAuth(async (req) => {
+  const body = await req.json();
+  const course = await createCourse(body);
+  return NextResponse.json(course);
 });
