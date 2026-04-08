@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 
 type ProjectDetail = {
   id: string;
@@ -82,7 +82,10 @@ export default function ProjectDetailPage() {
         description="Project detail view"
         action={
           <Link href="/projects">
-            <Button variant="outline" size="sm">← Back to Projects</Button>
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Projects
+            </Button>
           </Link>
         }
       />

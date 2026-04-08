@@ -40,8 +40,12 @@ export default function NewPaymentPage() {
       if (activeBusiness !== "ramesys") return;
       try {
         const [projRes, invRes] = await Promise.all([
-          apiClient.get<PaginatedResponse<Project>>("/ramesys/projects?limit=50"),
-          apiClient.get<PaginatedResponse<Invoice>>("/ramesys/invoices?limit=50"),
+          apiClient.get<PaginatedResponse<Project>>(
+            "/ramesys/projects?limit=50",
+          ),
+          apiClient.get<PaginatedResponse<Invoice>>(
+            "/ramesys/invoices?limit=50",
+          ),
         ]);
         setProjects(projRes.data);
         setInvoices(invRes.data);
@@ -55,10 +59,10 @@ export default function NewPaymentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Generate a dummy ID
     const newId = `PAY-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-    
+
     // Store in localStorage for demo purposes
     const newPayment = {
       id: newId,
@@ -66,15 +70,21 @@ export default function NewPaymentPage() {
       status: "PENDING",
       method: formData.method,
       projectId: formData.projectId,
-      projectName: projects.find(p => p.id === formData.projectId)?.name || "N/A",
+      projectName:
+        projects.find((p) => p.id === formData.projectId)?.name || "N/A",
       createdAt: new Date().toISOString(),
     };
-    
+
     if (typeof window !== "undefined") {
-      const existing = JSON.parse(localStorage.getItem("mock_payments") || "[]");
-      localStorage.setItem("mock_payments", JSON.stringify([...existing, newPayment]));
+      const existing = JSON.parse(
+        localStorage.getItem("mock_payments") || "[]",
+      );
+      localStorage.setItem(
+        "mock_payments",
+        JSON.stringify([...existing, newPayment]),
+      );
     }
-    
+
     setTimeout(() => {
       setLoading(false);
       setGeneratedId(newId);
@@ -82,7 +92,9 @@ export default function NewPaymentPage() {
     }, 800);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -94,11 +106,15 @@ export default function NewPaymentPage() {
         <div className="h-20 w-20 bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center shadow-inner">
           <div className="h-10 w-10 border-4 border-emerald-600 dark:border-emerald-400 border-t-transparent rounded-full animate-spin" />
         </div>
-        
+
         <div className="space-y-3">
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Payment Link Generated</h2>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Payment Link Generated
+          </h2>
           <p className="text-muted-foreground text-lg max-w-md">
-            The entry has been created in the database with <span className="font-semibold text-amber-600">PENDING</span> status.
+            The entry has been created in the database with{" "}
+            <span className="font-semibold text-amber-600">PENDING</span>{" "}
+            status.
           </p>
         </div>
 
@@ -107,7 +123,7 @@ export default function NewPaymentPage() {
             {paymentLink}
           </div>
           <div className="flex flex-col sm:flex-row gap-4 w-full">
-            <Button 
+            <Button
               className="flex-1 h-12 gap-2 text-lg font-bold"
               onClick={() => {
                 navigator.clipboard.writeText(paymentLink);
@@ -116,15 +132,24 @@ export default function NewPaymentPage() {
             >
               Copy link
             </Button>
-            <Link href={`/payments/dummy-checkout/${generatedId}`} className="flex-1">
-              <Button variant="secondary" className="w-full h-12 gap-2 text-lg font-bold">
+            <Link
+              href={`/payments/dummy-checkout/${generatedId}`}
+              className="flex-1"
+            >
+              <Button
+                variant="secondary"
+                className="w-full h-12 gap-2 text-lg font-bold"
+              >
                 Go to payment
               </Button>
             </Link>
           </div>
         </div>
 
-        <Link href="/payments" className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors hover:underline">
+        <Link
+          href="/payments"
+          className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors hover:underline"
+        >
           Return to Payments management
         </Link>
       </div>
@@ -133,8 +158,8 @@ export default function NewPaymentPage() {
 
   return (
     <EntityForm
-      title="Record New Payment"
-      description="Document a financial transaction for a project or invoice."
+      title="Generate Payment Link"
+      description="Generate a payment link for a project or invoice."
       onSubmit={handleSubmit}
       loading={loading}
       success={success}
@@ -143,7 +168,9 @@ export default function NewPaymentPage() {
     >
       <div className="grid gap-6">
         <div className="space-y-2">
-          <Label htmlFor="amount" className="text-sm font-semibold">Payment Amount (₹)</Label>
+          <Label htmlFor="amount" className="text-sm font-semibold">
+            Payment Amount (₹)
+          </Label>
           <Input
             id="amount"
             name="amount"
@@ -158,7 +185,9 @@ export default function NewPaymentPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="status" className="text-sm font-semibold">Payment Status</Label>
+            <Label htmlFor="status" className="text-sm font-semibold">
+              Payment Status
+            </Label>
             <select
               id="status"
               name="status"
@@ -172,7 +201,9 @@ export default function NewPaymentPage() {
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="method" className="text-sm font-semibold">Payment Method</Label>
+            <Label htmlFor="method" className="text-sm font-semibold">
+              Payment Method
+            </Label>
             <select
               id="method"
               name="method"
@@ -189,7 +220,9 @@ export default function NewPaymentPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="projectId" className="text-sm font-semibold">Associated Project (Optional)</Label>
+          <Label htmlFor="projectId" className="text-sm font-semibold">
+            Associated Project (Optional)
+          </Label>
           <select
             id="projectId"
             name="projectId"
@@ -199,13 +232,17 @@ export default function NewPaymentPage() {
           >
             <option value="">None</option>
             {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="invoiceId" className="text-sm font-semibold">Associated Invoice (Optional)</Label>
+          <Label htmlFor="invoiceId" className="text-sm font-semibold">
+            Associated Invoice (Optional)
+          </Label>
           <select
             id="invoiceId"
             name="invoiceId"
@@ -215,7 +252,9 @@ export default function NewPaymentPage() {
           >
             <option value="">None</option>
             {invoices.map((i) => (
-              <option key={i.id} value={i.id}>Invoice #{i.id.slice(-6)} - ₹{i.amount}</option>
+              <option key={i.id} value={i.id}>
+                Invoice #{i.id.slice(-6)} - ₹{i.amount}
+              </option>
             ))}
           </select>
         </div>

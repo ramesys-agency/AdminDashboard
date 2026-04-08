@@ -1,49 +1,123 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import Link from "next/link";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
+import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import { vydhraData } from "@/data/vydhra";
+import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Eye, Plus } from "lucide-react";
+
+type StudentRow = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string | null;
+  _count: { enrollments: number };
+  createdAt: string;
+};
 
 export default function StudentsPage() {
   const { activeBusiness } = useBusiness();
+  const [data, setData] = useState<StudentRow[]>([]);
+  const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
+  const [loading, setLoading] = useState(true);
+  
+  // Query state
+  const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+
+  const fetchData = useCallback(async (p: number, q: string) => {
+    if (activeBusiness !== "vydhra") return;
+    
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: p.toString(),
+        limit: "10",
+        ...(q && { q }),
+      });
+      
+      const res = await apiClient.get<PaginatedResponse<StudentRow>>(`/vydhra/students?${query}`);
+      setData(res.data);
+      setMetadata(res.metadata);
+    } catch (err) {
+      console.error("Failed to fetch students:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeBusiness]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchData(page, search);
+    }, 300); // Simple debounce
+    
+    return () => clearTimeout(timer);
+  }, [page, search, fetchData]);
 
   const columns = [
     { header: "ID", accessor: "id" as const },
     { header: "Name", accessor: "name" as const },
     { header: "Email", accessor: "email" as const },
-    { header: "Courses Enrolled", accessor: "courses" as const },
-    { header: "Joined", accessor: "joined" as const },
+    { header: "Enrollments", accessor: (row: StudentRow) => row._count?.enrollments || 0 },
+    { header: "Joined", accessor: (row: StudentRow) => new Date(row.createdAt).toLocaleDateString() },
     { 
-      header: "Status", 
-      accessor: (row: { status: string }) => (
-        <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${
-          row.status === 'Active' 
-            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
-            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-        }`}>
-          {row.status}
-        </span>
+      header: "Actions", 
+      accessor: (row: StudentRow) => (
+        <Link href={`/students/${row.id}`}>
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+            <Eye className="h-4 w-4" />
+          </Button>
+        </Link>
       )
     },
   ];
 
+  const handleSearch = (val: string) => {
+    setSearch(val);
+    setPage(1); // Reset to first page on search
+  };
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto pb-10">
       <PageHeader
         title="Students"
         description="Manage all enrolled students on the platform."
+        action={
+          <Link href="/students/new">
+            <Button className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Student
+            </Button>
+          </Link>
+        }
       />
+
+      {activeBusiness === "vydhra" && (
+        <TableControls 
+          onSearch={handleSearch} 
+          searchValue={search}
+          placeholder="Search students..."
+        />
+      )}
       
       {activeBusiness === "vydhra" ? (
-        <DataTable
-          data={vydhraData.students}
-          columns={columns}
-          keyExtractor={(row) => row.id}
-        />
+        loading ? (
+          <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading students...</div>
+        ) : (
+          <DataTable
+            data={data}
+            columns={columns}
+            keyExtractor={(row) => row.id}
+            metadata={metadata}
+            onPageChange={setPage}
+          />
+        )
       ) : (
-        <div className="p-8 text-center text-gray-500 border rounded-xl border-dashed">
+        <div className="p-8 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20">
           Switch to Vydhra to view Students.
         </div>
       )}

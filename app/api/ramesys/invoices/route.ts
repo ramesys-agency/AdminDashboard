@@ -9,6 +9,6 @@ export const GET = withAuth(async (req) => {
   const status = searchParams.get("status") || undefined;
   const projectId = searchParams.get("projectId") || undefined;
 
-  const result = await getInvoices({ page, limit, status, projectId });
+  const result = await getInvoices({ page, limit, status, projectId, businessType: "IT_SERVICES" });
   return NextResponse.json(result);
 });

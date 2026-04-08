@@ -16,7 +16,11 @@ type InvoiceRow = {
   amount: number;
   status: string;
   dueDate: string | null;
-  project: { id: string; name: string } | null;
+  project?: { id: string; name: string } | null;
+  payments?: Array<{
+    student: { name: string };
+    courseEnrollment: { course: { name: string } };
+  }>;
   createdAt: string;
 };
 
@@ -40,8 +44,6 @@ export default function InvoicesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchData = useCallback(async (p: number, status: string) => {
-    if (activeBusiness !== "ramesys") return;
-    
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -50,7 +52,8 @@ export default function InvoicesPage() {
         ...(status !== "all" && { status }),
       });
       
-      const res = await apiClient.get<PaginatedResponse<InvoiceRow>>(`/ramesys/invoices?${query}`);
+      const endpoint = activeBusiness === "vydhra" ? "/vydhra/invoices" : "/ramesys/invoices";
+      const res = await apiClient.get<PaginatedResponse<InvoiceRow>>(`${endpoint}?${query}`);
       setData(res.data);
       setMetadata(res.metadata);
     } catch (err) {
@@ -62,19 +65,25 @@ export default function InvoicesPage() {
 
   useEffect(() => {
     fetchData(page, statusFilter);
-  }, [page, statusFilter, fetchData]);
+  }, [page, statusFilter, fetchData, activeBusiness]);
 
   const columns = [
     { header: "ID", accessor: "id" as const },
     { header: "Amount", accessor: (row: InvoiceRow) => `₹${row.amount.toLocaleString()}` },
     { header: "Status", accessor: (row: InvoiceRow) => <StatusBadge status={row.status} /> },
-    { header: "Project", accessor: (row: InvoiceRow) => row.project?.name || "N/A" },
+    ...(activeBusiness === "vydhra" 
+      ? [
+          { header: "Course", accessor: (row: InvoiceRow) => row.payments?.[0]?.courseEnrollment?.course?.name || "N/A" },
+          { header: "Student", accessor: (row: InvoiceRow) => row.payments?.[0]?.student?.name || "N/A" }
+        ]
+      : [{ header: "Project", accessor: (row: InvoiceRow) => row.project?.name || "N/A" }]
+    ),
     { header: "Due Date", accessor: (row: InvoiceRow) => row.dueDate ? new Date(row.dueDate).toLocaleDateString() : "N/A" },
     {
       header: "Actions",
       accessor: (row: InvoiceRow) => (
         <Link href={`/invoices/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-slate-100">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
@@ -91,51 +100,45 @@ export default function InvoicesPage() {
     <div className="max-w-6xl mx-auto pb-10">
       <PageHeader
         title="Invoices"
-        description="Manage and track all client invoices."
+        description="Manage and track all business invoices."
         action={
-          <Link href="/invoices/new">
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              Generate Invoice
-            </Button>
-          </Link>
+          activeBusiness === "ramesys" && (
+            <Link href="/invoices/new">
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                Generate Invoice
+              </Button>
+            </Link>
+          )
         }
       />
 
-      {activeBusiness === "ramesys" && (
-        <TableControls 
-          onSearch={() => {}} 
-          searchValue=""
+      <TableControls 
+        onSearch={() => {}} 
+        searchValue=""
+      >
+        <select 
+          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+          value={statusFilter}
+          onChange={handleStatusChange}
         >
-          <select 
-            className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={statusFilter}
-            onChange={handleStatusChange}
-          >
-            <option value="all">All Status</option>
-            <option value="PENDING">Pending</option>
-            <option value="PAID">Paid</option>
-            <option value="CANCELLED">Cancelled</option>
-          </select>
-        </TableControls>
-      )}
+          <option value="all">All Status</option>
+          <option value="PENDING">Pending</option>
+          <option value="PAID">Paid</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </TableControls>
 
-      {activeBusiness === "ramesys" ? (
-        loading ? (
-          <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading invoices...</div>
-        ) : (
-          <DataTable
-            data={data}
-            columns={columns}
-            keyExtractor={(row) => row.id}
-            metadata={metadata}
-            onPageChange={setPage}
-          />
-        )
+      {loading ? (
+        <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading invoices...</div>
       ) : (
-        <div className="p-8 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20">
-          Switch to Ramesys to view Invoices.
-        </div>
+        <DataTable
+          data={data}
+          columns={columns}
+          keyExtractor={(row) => row.id}
+          metadata={metadata}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

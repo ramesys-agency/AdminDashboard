@@ -38,8 +38,17 @@ export class ApiClient {
 
     if (!response.ok) {
       if (response.status === 401) {
-        // Optional: Handle logout or token refresh
-        console.warn("Session expired. Please log in again.");
+        // Automatically logout and redirect if token is invalid or expired
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("accessToken");
+          localStorage.removeItem("refreshToken");
+          localStorage.removeItem("user");
+          
+          // Only redirect if not already on the login page to avoid loops
+          if (!window.location.pathname.includes("/login")) {
+            window.location.href = "/login?expired=true";
+          }
+        }
       }
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error || `HTTP error! status: ${response.status}`);

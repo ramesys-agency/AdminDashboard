@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { isTokenExpired } from "@/lib/auth/client-token";
 
 interface User {
   id: string;
@@ -29,11 +30,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedUser = localStorage.getItem("user");
 
     if (storedAccessToken && storedUser) {
-      setAccessToken(storedAccessToken);
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error("Failed to parse user from localStorage");
+      if (isTokenExpired(storedAccessToken)) {
+        console.warn("Stored token is expired. Clearing auth state.");
+        logout();
+      } else {
+        setAccessToken(storedAccessToken);
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          console.error("Failed to parse user from localStorage");
+        }
       }
     }
     

@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Loader2, ArrowLeft } from "lucide-react";
 
 type ClientDetail = {
   id: string;
@@ -87,8 +87,9 @@ export default function ClientDetailPage() {
         description="Client detail view"
         action={
           <Link href="/clients">
-            <Button variant="outline" size="sm">
-              ← Back to Clients
+            <Button variant="outline" size="sm" className="flex items-center gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Clients
             </Button>
           </Link>
         }

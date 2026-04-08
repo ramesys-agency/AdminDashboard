@@ -42,8 +42,6 @@ export default function EnquiriesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
 
   const fetchData = useCallback(async (p: number, q: string, status: string) => {
-    if (activeBusiness !== "ramesys") return;
-    
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -53,7 +51,8 @@ export default function EnquiriesPage() {
         ...(status !== "all" && { status }),
       });
       
-      const res = await apiClient.get<PaginatedResponse<EnquiryRow>>(`/ramesys/enquiries?${query}`);
+      const endpoint = activeBusiness === "vydhra" ? "/vydhra/enquiries" : "/ramesys/enquiries";
+      const res = await apiClient.get<PaginatedResponse<EnquiryRow>>(`${endpoint}?${query}`);
       setData(res.data);
       setMetadata(res.metadata);
     } catch (err) {
@@ -68,7 +67,7 @@ export default function EnquiriesPage() {
       fetchData(page, search, statusFilter);
     }, 300);
     return () => clearTimeout(timer);
-  }, [page, search, statusFilter, fetchData]);
+  }, [page, search, statusFilter, fetchData, activeBusiness]);
 
   const columns = [
     { header: "ID", accessor: "id" as const },
@@ -81,7 +80,7 @@ export default function EnquiriesPage() {
       header: "Actions",
       accessor: (row: EnquiryRow) => (
         <Link href={`/enquiries/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button variant="outline" size="sm" className="h-8 w-8 p-0 transition-all hover:bg-muted font-medium">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
@@ -103,44 +102,36 @@ export default function EnquiriesPage() {
     <div className="max-w-6xl mx-auto pb-10">
       <PageHeader
         title="Enquiries"
-        description="View and manage all incoming client enquiries."
+        description="View and manage all incoming business enquiries."
       />
 
-      {activeBusiness === "ramesys" && (
-        <TableControls 
-          onSearch={handleSearch} 
-          searchValue={search}
-          placeholder="Search by name, email or message..."
+      <TableControls 
+        onSearch={handleSearch} 
+        searchValue={search}
+        placeholder="Search by name, email or message..."
+      >
+        <select 
+          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+          value={statusFilter}
+          onChange={handleStatusChange}
         >
-          <select 
-            className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={statusFilter}
-            onChange={handleStatusChange}
-          >
-            <option value="all">All Status</option>
-            <option value="NEW">New</option>
-            <option value="CONTACTED">Contacted</option>
-            <option value="RESOLVED">Resolved</option>
-          </select>
-        </TableControls>
-      )}
+          <option value="all">All Status</option>
+          <option value="NEW">New</option>
+          <option value="CONTACTED">Contacted</option>
+          <option value="RESOLVED">Resolved</option>
+        </select>
+      </TableControls>
 
-      {activeBusiness === "ramesys" ? (
-        loading ? (
-          <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading enquiries...</div>
-        ) : (
-          <DataTable
-            data={data}
-            columns={columns}
-            keyExtractor={(row) => row.id}
-            metadata={metadata}
-            onPageChange={setPage}
-          />
-        )
+      {loading ? (
+        <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading enquiries...</div>
       ) : (
-        <div className="p-8 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20">
-          Switch to Ramesys to view Enquiries.
-        </div>
+        <DataTable
+          data={data}
+          columns={columns}
+          keyExtractor={(row) => row.id}
+          metadata={metadata}
+          onPageChange={setPage}
+        />
       )}
     </div>
   );

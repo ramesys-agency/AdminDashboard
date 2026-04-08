@@ -7,16 +7,205 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Basic Admin/User model for dashboard access
 model AdminUser {
-  id       String  @id @default(cuid())
-  name     String?
-  email    String  @unique
-  password String? // Add password field for traditional email/password login
-  role     String  @default("ADMIN") // e.g., SUPERADMIN, ADMIN, VIEWER
-
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String?
+  role      String   @default("ADMIN")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Business {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  type      BusinessType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  createdBy String?
+  updatedBy String?
+  agents    Agent[]
+  clients   Client[]
+  coupons   Coupon[]
+  courses   Course[]
+  enquiries Enquiry[]
+  invoices  Invoice[]
+  payments  Payment[]
+  projects  Project[]
+  students  Student[]
+}
+
+model Client {
+  id         String    @id @default(cuid())
+  businessId String
+  name       String
+  email      String    @unique
+  phone      String?
+  company    String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  createdBy  String?
+  updatedBy  String?
+  business   Business  @relation(fields: [businessId], references: [id])
+  projects   Project[]
+}
+
+model Project {
+  id          String    @id @default(cuid())
+  businessId  String
+  clientId    String
+  name        String
+  description String?
+  status      String
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  invoices    Invoice[]
+  payments    Payment[]
+  business    Business  @relation(fields: [businessId], references: [id])
+  client      Client    @relation(fields: [clientId], references: [id])
+}
+
+model Invoice {
+  id          String    @id @default(cuid())
+  businessId  String
+  projectId   String?
+  amount      Float
+  status      String
+  invoiceLink String?
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  business    Business  @relation(fields: [businessId], references: [id])
+  project     Project?  @relation(fields: [projectId], references: [id])
+  payments    Payment[]
+}
+
+model Student {
+  id          String             @id @default(cuid())
+  businessId  String
+  name        String
+  email       String             @unique
+  phone       String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  enrollments CourseEnrollment[]
+  payments    Payment[]
+  business    Business           @relation(fields: [businessId], references: [id])
+}
+
+model Course {
+  id          String             @id @default(cuid())
+  businessId  String
+  name        String
+  description String?
+  price       Float
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  business    Business           @relation(fields: [businessId], references: [id])
+  enrollments CourseEnrollment[]
+}
+
+model CourseEnrollment {
+  id        String    @id @default(cuid())
+  studentId String
+  courseId  String
+  status    String
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  createdBy String?
+  updatedBy String?
+  course    Course    @relation(fields: [courseId], references: [id])
+  student   Student   @relation(fields: [studentId], references: [id])
+  payments  Payment[]
+}
+
+model Agent {
+  id               String         @id @default(cuid())
+  businessId       String
+  name             String
+  email            String         @unique
+  phone            String?
+  code             String         @unique
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  additionalAmount Float          @default(0)
+  commissionType   CommissionType @default(PERCENTAGE) // Same as discountType from Coupons
+  commissionValue  Float          @default(10) // Same as discountValue from Coupons
+  totalEarned      Float          @default(0)
+  totalPaid        Float          @default(0)
+  business         Business       @relation(fields: [businessId], references: [id])
+  payments         Payment[]
+}
+
+model Coupon {
+  id            String       @id @default(cuid())
+  businessId    String
+  code          String       @unique
+  discountType  DiscountType @default(PERCENTAGE)
+  discountValue Float        @default(10)
+  maxUses       Int?
+  currentUses   Int          @default(0)
+  validUntil    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  createdBy     String?
+  updatedBy     String?
+  business      Business     @relation(fields: [businessId], references: [id])
+  payments      Payment[]
+}
+
+model Enquiry {
+  id         String   @id @default(cuid())
+  businessId String
+  name       String
+  email      String
+  phone      String?
+  message    String?
+  status     String   @default("NEW")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  createdBy  String?
+  updatedBy  String?
+  business   Business @relation(fields: [businessId], references: [id])
+}
+
+model Payment {
+  id                 String            @id @default(cuid())
+  businessId         String
+  amount             Float
+  status             String
+  method             String?
+  projectId          String?
+  invoiceId          String?
+  studentId          String?
+  courseEnrollmentId String?
+  agentId            String?
+  couponId           String?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  createdBy          String?
+  updatedBy          String?
+  agent              Agent?            @relation(fields: [agentId], references: [id])
+  business           Business          @relation(fields: [businessId], references: [id])
+  coupon             Coupon?           @relation(fields: [couponId], references: [id])
+  invoice            Invoice?          @relation(fields: [invoiceId], references: [id])
+  project            Project?          @relation(fields: [projectId], references: [id])
+  student            Student?          @relation(fields: [studentId], references: [id])
+  courseEnrollment   CourseEnrollment? @relation(fields: [courseEnrollmentId], references: [id])
 }
 
 enum BusinessType {
@@ -25,226 +214,12 @@ enum BusinessType {
   OTHER
 }
 
-model Business {
-  id   String       @id @default(cuid())
-  name String       @unique
-  type BusinessType
-
-  // Relations
-  clients   Client[]
-  projects  Project[]
-  students  Student[]
-  courses   Course[]
-  enquiries Enquiry[]
-  payments  Payment[]
-  agents    Agent[]
-  coupons   Coupon[]
-  invoices  Invoice[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
+enum CommissionType {
+  PERCENTAGE
+  FLAT
 }
 
-model Client {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-  name       String
-  email      String   @unique
-  phone      String?
-  company    String?
-
-  projects Project[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Project {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-  clientId   String
-  client     Client   @relation(fields: [clientId], references: [id])
-
-  name        String
-  description String?
-  status      String // e.g., PENDING, IN_PROGRESS, COMPLETED
-  startDate   DateTime?
-  endDate     DateTime?
-  budget      Float?
-
-  invoices Invoice[]
-  payments Payment[] // Payments towards this project
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Invoice {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-  projectId  String?
-  project    Project? @relation(fields: [projectId], references: [id])
-
-  amount      Float
-  status      String // PENDING, PAID, CANCELLED
-  invoiceLink String? // URL/link for sending to clients
-  dueDate     DateTime?
-
-  payments Payment[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Student {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  name  String
-  email String  @unique
-  phone String?
-
-  enrollments CourseEnrollment[]
-  payments    Payment[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Course {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  name        String
-  description String?
-  price       Float
-
-  enrollments CourseEnrollment[]
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model CourseEnrollment {
-  id        String  @id @default(cuid())
-  studentId String
-  student   Student @relation(fields: [studentId], references: [id])
-  courseId  String
-  course    Course  @relation(fields: [courseId], references: [id])
-
-  status String // ENROLLED, COMPLETED, DROPPED
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Agent {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  name  String
-  email String  @unique
-  phone String?
-
-  code            String @unique // The unique code generated for the agent
-  discountPercent Float // Custom discount attached to this agent's code
-
-  payments Payment[] // Payments made using this agent's code
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Coupon {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  code            String    @unique
-  discountPercent Float
-  maxUses         Int?
-  currentUses     Int       @default(0)
-  validUntil      DateTime?
-
-  payments Payment[] // Payments made using this coupon
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Enquiry {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  name    String
-  email   String
-  phone   String?
-  message String?
-
-  status String @default("NEW") // NEW, CONTACTED, RESOLVED
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
-}
-
-model Payment {
-  id         String   @id @default(cuid())
-  businessId String
-  business   Business @relation(fields: [businessId], references: [id])
-
-  amount Float
-  status String // PENDING, COMPLETED, FAILED
-  method String? // CARD, BANK_TRANSFER, UPI, etc.
-
-  // Relations (optional/polymorphic based on what the payment is for)
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id])
-
-  invoiceId String?
-  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
-
-  studentId String?
-  student   Student? @relation(fields: [studentId], references: [id])
-
-  courseEnrollmentId String?
-  // We don't link directly to CourseEnrollment unless needed.
-  // courseEnrollment   CourseEnrollment? @relation(fields: [courseEnrollmentId], references: [id])
-
-  agentId String?
-  agent   Agent?  @relation(fields: [agentId], references: [id])
-
-  couponId String?
-  coupon   Coupon? @relation(fields: [couponId], references: [id])
-
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-  createdBy  String?
-  updatedBy  String?
+enum DiscountType {
+  PERCENTAGE
+  FLAT
 }

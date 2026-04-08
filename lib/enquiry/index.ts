@@ -8,21 +8,17 @@ export type GetEnquiriesParams = {
   status?: string;
 };
 
-export async function getEnquiries({
-  page = 1,
-  limit = 10,
-  search,
-  status,
-}: GetEnquiriesParams = {}) {
+export async function getEnquiries({ page = 1, limit = 10, search, status }: GetEnquiriesParams = {}) {
   const skip = (page - 1) * limit;
 
   const where: Prisma.EnquiryWhereInput = {
-    business: { type: "IT_SERVICES" },
-    ...(status && { status }),
+    business: { type: "COURSE_SELLING" },
+    ...(status && status !== "all" && { status }),
     ...(search && {
       OR: [
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
+        { phone: { contains: search, mode: "insensitive" } },
         { message: { contains: search, mode: "insensitive" } },
       ],
     }),
