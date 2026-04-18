@@ -6,15 +6,26 @@ export type GetPaymentsParams = {
   limit?: number;
   status?: string;
   method?: string;
+  projectId?: string;
+  invoiceId?: string;
 };
 
-export async function getPayments({ page = 1, limit = 10, status, method }: GetPaymentsParams = {}) {
+export async function getPayments({ 
+  page = 1, 
+  limit = 10, 
+  status, 
+  method,
+  projectId,
+  invoiceId
+}: GetPaymentsParams = {}) {
   const skip = (page - 1) * limit;
 
   const where: Prisma.PaymentWhereInput = {
     business: { type: "COURSE_SELLING" },
     ...(status && status !== "all" && { status }),
     ...(method && method !== "all" && { method }),
+    ...(projectId && { projectId }),
+    ...(invoiceId && { invoiceId }),
   };
 
   const [total, data] = await Promise.all([

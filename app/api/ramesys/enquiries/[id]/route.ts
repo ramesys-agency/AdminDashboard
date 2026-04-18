@@ -4,7 +4,7 @@ import { getEnquiryById } from "@/lib/enquiry";
 
 export const GET = withAuth(async (req, context) => {
   const { id } = await context.params;
-  const enquiry = await getEnquiryById(id);
+  const enquiry = await getEnquiryById(id as string);
   
   if (!enquiry) {
     return NextResponse.json({ error: "Enquiry not found" }, { status: 404 });

@@ -4,7 +4,7 @@ import { getInvoiceById } from "@/lib/invoice";
 
 export const GET = withAuth(async (req, context) => {
   const { id } = await context.params;
-  const invoice = await getInvoiceById(id);
+  const invoice = await getInvoiceById(id as string);
   
   if (!invoice) {
     return NextResponse.json({ error: "Invoice not found" }, { status: 404 });

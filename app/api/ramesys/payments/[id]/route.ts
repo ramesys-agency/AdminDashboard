@@ -4,7 +4,7 @@ import { getPaymentById } from "@/lib/payment";
 
 export const GET = withAuth(async (req, context) => {
   const { id } = await context.params;
-  const payment = await getPaymentById(id);
+  const payment = await getPaymentById(id as string);
   
   if (!payment) {
     return NextResponse.json({ error: "Payment not found" }, { status: 404 });

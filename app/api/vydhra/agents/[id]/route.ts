@@ -27,7 +27,8 @@ export const PATCH = withAuth(async (req, { params }) => {
       ...(bonusAmount !== undefined && { additionalAmount: bonusAmount })
     });
     return NextResponse.json(updatedAgent);
-  } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return NextResponse.json({ error: errorMessage }, { status: 400 });
   }
 });

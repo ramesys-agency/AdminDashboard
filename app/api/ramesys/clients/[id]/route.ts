@@ -4,7 +4,7 @@ import { getClientById } from "@/lib/client";
 
 export const GET = withAuth(async (req, context) => {
   const { id } = await context.params;
-  const client = await getClientById(id);
+  const client = await getClientById(id as string);
   
   if (!client) {
     return NextResponse.json({ error: "Client not found" }, { status: 404 });
