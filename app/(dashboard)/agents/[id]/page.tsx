@@ -109,7 +109,7 @@ export default function AgentDetailPage() {
         additionalAmount: amount,
       });
       toast.success("Payout Updated", {
-        description: `Successfully updated paid amount by ₹${amount.toLocaleString()}`,
+        description: `Successfully updated paid amount by $${amount.toLocaleString()}`,
       });
       setPayoutAmount("");
       fetchAgent(); // Refresh data
@@ -208,7 +208,7 @@ export default function AgentDetailPage() {
               <p className="text-2xl font-black">
                 {agent.commissionType === "PERCENTAGE"
                   ? `${agent.commissionValue || 0}%`
-                  : `₹${(agent.commissionValue || 0).toLocaleString()} flat`}
+                  : `$${(agent.commissionValue || 0).toLocaleString()} flat`}
               </p>
               <p className="text-[10px] text-white/50 mt-1">
                 Applied per successful referral
@@ -228,7 +228,7 @@ export default function AgentDetailPage() {
               </p>
               <TrendingUp className="h-4 w-4 text-emerald-500" />
             </div>
-            <p className="text-2xl font-bold">₹{totalSales.toLocaleString()}</p>
+            <p className="text-2xl font-bold">${totalSales.toLocaleString()}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {completedPayments.length} completed transactions
             </p>
@@ -244,7 +244,7 @@ export default function AgentDetailPage() {
               <ArrowUpRight className="h-4 w-4 text-orange-500" />
             </div>
             <p className="text-2xl font-bold">
-              ₹{totalEarned.toLocaleString()}
+              ${totalEarned.toLocaleString()}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
               Based on {agent.commissionValue}
@@ -262,12 +262,12 @@ export default function AgentDetailPage() {
               <HandCoins className="h-4 w-4 text-emerald-600" />
             </div>
             <p className="text-2xl font-bold text-emerald-700">
-              ₹{pendingAmount.toLocaleString()}
+              ${pendingAmount.toLocaleString()}
             </p>
             <p className="text-xs text-emerald-600/70 mt-1">
               Released{" "}
               {(agent.totalPaid || 0) > 0
-                ? `₹${(agent.totalPaid || 0).toLocaleString()}`
+                ? `$${(agent.totalPaid || 0).toLocaleString()}`
                 : "nothing"}{" "}
               so far
             </p>
@@ -353,7 +353,7 @@ export default function AgentDetailPage() {
                           </div>
                         </TableCell>
                         <TableCell className="px-6 py-4 font-bold text-slate-900">
-                          ₹{p.amount.toLocaleString()}
+                          ${p.amount.toLocaleString()}
                         </TableCell>
                         <TableCell className="px-6 py-4">
                           <Badge
@@ -397,7 +397,7 @@ export default function AgentDetailPage() {
               <CardContent className="space-y-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    Additional Amount Paid (₹)
+                    Additional Amount Paid ($)
                   </label>
                   <Input
                     type="number"
@@ -444,7 +444,7 @@ export default function AgentDetailPage() {
                         Total Commission Earned
                       </p>
                       <p className="text-3xl font-black text-slate-900">
-                        ₹{totalEarned.toLocaleString()}
+                        ${totalEarned.toLocaleString()}
                       </p>
                     </div>
                     <div className="text-right space-y-1">
@@ -452,7 +452,7 @@ export default function AgentDetailPage() {
                         Total Paid To Date
                       </p>
                       <p className="text-3xl font-black text-emerald-600">
-                        ₹{(agent.totalPaid || 0).toLocaleString()}
+                        ${(agent.totalPaid || 0).toLocaleString()}
                       </p>
                     </div>
                   </div>
@@ -490,7 +490,7 @@ export default function AgentDetailPage() {
                         Current Outstanding Balance (Inc. Bonus)
                       </p>
                       <p className="text-4xl font-black text-slate-900 tracking-tighter">
-                        ₹{pendingAmount.toLocaleString()}
+                        ${pendingAmount.toLocaleString()}
                       </p>
                     </div>
                   </div>

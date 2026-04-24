@@ -10,31 +10,33 @@ export type GetCoursesParams = {
 export async function getCourses({ page = 1, limit = 10, search }: GetCoursesParams = {}) {
   const skip = (page - 1) * limit;
 
-  const where: Prisma.CourseWhereInput = {
-    business: { type: "COURSE_SELLING" },
-    ...(search && {
-      OR: [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ],
-    }),
-  };
+  // Since Prisma client is stale and missing slug/details, we use queryRaw
+  const courses = await prisma.$queryRaw`
+    SELECT c.*, 
+    (SELECT COUNT(*)::int FROM "CourseEnrollment" ce WHERE ce."courseId" = c.id) as enrollment_count
+    FROM "Course" c
+    JOIN "Business" b ON c."businessId" = b.id
+    WHERE b.type = 'COURSE_SELLING'
+    ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
+    ORDER BY c."createdAt" DESC
+    LIMIT ${limit} OFFSET ${skip}
+  `;
 
-  const [total, data] = await Promise.all([
-    prisma.course.count({ where }),
-    prisma.course.findMany({
-      where,
-      include: {
-        _count: { select: { enrollments: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    }),
-  ]);
+  const totalResult = await prisma.$queryRaw`
+    SELECT COUNT(*)::int as count 
+    FROM "Course" c
+    JOIN "Business" b ON c."businessId" = b.id
+    WHERE b.type = 'COURSE_SELLING'
+    ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
+  ` as any[];
+
+  const total = totalResult[0]?.count || 0;
 
   return {
-    data,
+    data: (courses as any[]).map(c => ({
+      ...c,
+      _count: { enrollments: c.enrollment_count }
+    })),
     metadata: {
       total,
       page,
@@ -44,26 +46,31 @@ export async function getCourses({ page = 1, limit = 10, search }: GetCoursesPar
   };
 }
 
+export async function getCourseBySlug(slug: string) {
+  const result = await prisma.$queryRaw`SELECT * FROM "Course" WHERE slug ILIKE ${slug} LIMIT 1`;
+  const courses = result as any[];
+  return courses.length > 0 ? courses[0] : null;
+}
+
 export async function getCourseById(id: string) {
-  const course = await prisma.course.findUnique({
-    where: { id },
-    include: {
-      enrollments: {
-        include: {
-          student: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-    },
-  });
+  const result = await prisma.$queryRaw`SELECT * FROM "Course" WHERE id = ${id} LIMIT 1`;
+  const courses = result as any[];
+  const course = courses.length > 0 ? courses[0] : null;
 
   if (!course) return null;
+
+  // Include enrollments (still using standard Prisma for now as it doesn't use the new fields)
+  const enrollments = await prisma.courseEnrollment.findMany({
+    where: { courseId: id },
+    include: { student: true },
+    orderBy: { createdAt: "desc" },
+  });
 
   // Calculate total revenue for this course
   // Note: Since Payments aren't directly linked to Course, we use courseEnrollmentId in Payment if available
   const payments = await prisma.payment.findMany({
     where: {
-      courseEnrollmentId: { in: course.enrollments.map(e => e.id) },
+      courseEnrollmentId: { in: enrollments.map(e => e.id) },
       status: "COMPLETED",
     },
     select: { amount: true },
@@ -73,8 +80,9 @@ export async function getCourseById(id: string) {
 
   return {
     ...course,
+    enrollments,
     stats: {
-      totalEnrollments: course.enrollments.length,
+      totalEnrollments: enrollments.length,
       totalRevenue,
     },
   };

@@ -31,8 +31,18 @@ type ClientDetail = {
     status: string;
     budget: number | null;
     startDate: string | null;
-    payments: Array<{ id: string; amount: number; status: string; createdAt: string }>;
-    invoices: Array<{ id: string; amount: number; status: string; dueDate: string | null }>;
+    payments: Array<{
+      id: string;
+      amount: number;
+      status: string;
+      createdAt: string;
+    }>;
+    invoices: Array<{
+      id: string;
+      amount: number;
+      status: string;
+      dueDate: string | null;
+    }>;
   }>;
 };
 
@@ -44,7 +54,8 @@ export default function ClientDetailPage() {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      apiClient.get<ClientDetail>(`/ramesys/clients/${id}`)
+      apiClient
+        .get<ClientDetail>(`/ramesys/clients/${id}`)
         .then(setClient)
         .catch((err) => {
           console.error("Failed to fetch client:", err);
@@ -87,7 +98,11 @@ export default function ClientDetailPage() {
         description="Client detail view"
         action={
           <Link href="/clients">
-            <Button variant="outline" size="sm" className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
               <ArrowLeft className="h-4 w-4" />
               Back to Clients
             </Button>
@@ -134,11 +149,11 @@ export default function ClientDetailPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
           { label: "Total Projects", value: client.projects.length },
-          { label: "Total Budget", value: `₹${totalBudget.toLocaleString()}` },
-          { label: "Total Paid", value: `₹${totalPaid.toLocaleString()}` },
+          { label: "Total Budget", value: `$${totalBudget.toLocaleString()}` },
+          { label: "Total Paid", value: `$${totalPaid.toLocaleString()}` },
           {
             label: "Outstanding",
-            value: `₹${(totalBudget - totalPaid).toLocaleString()}`,
+            value: `$${(totalBudget - totalPaid).toLocaleString()}`,
           },
         ].map((s) => (
           <Card key={s.label}>
@@ -161,11 +176,21 @@ export default function ClientDetailPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b hover:bg-slate-50/80">
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Name</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Status</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Budget</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Start Date</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Actions</TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Name
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Budget
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Start Date
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -189,7 +214,7 @@ export default function ClientDetailPage() {
                     </TableCell>
                     <TableCell className="px-6 py-4">
                       {project.budget
-                        ? `₹${project.budget.toLocaleString()}`
+                        ? `$${project.budget.toLocaleString()}`
                         : "N/A"}
                     </TableCell>
                     <TableCell className="px-6 py-4">
@@ -199,7 +224,11 @@ export default function ClientDetailPage() {
                     </TableCell>
                     <TableCell className="px-6 py-4">
                       <Link href={`/projects/${project.id}`}>
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                        >
                           <Eye className="h-4 w-4" />
                         </Button>
                       </Link>
@@ -221,11 +250,21 @@ export default function ClientDetailPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b hover:bg-slate-50/80">
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">ID</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Amount</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Status</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Project</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Date</TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  ID
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Amount
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Project
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Date
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -249,12 +288,14 @@ export default function ClientDetailPage() {
                         {pay.id.slice(-6).toUpperCase()}
                       </TableCell>
                       <TableCell className="font-medium px-6 py-4 text-slate-900">
-                        ₹{pay.amount.toLocaleString()}
+                        ${pay.amount.toLocaleString()}
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <Badge variant="outline">{pay.status}</Badge>
                       </TableCell>
-                      <TableCell className="px-6 py-4">{pay.projectName}</TableCell>
+                      <TableCell className="px-6 py-4">
+                        {pay.projectName}
+                      </TableCell>
                       <TableCell className="px-6 py-4">
                         {new Date(pay.createdAt).toLocaleDateString()}
                       </TableCell>
@@ -275,12 +316,24 @@ export default function ClientDetailPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/80 border-b hover:bg-slate-50/80">
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">ID</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Amount</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Status</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Due Date</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Project</TableHead>
-                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">Actions</TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  ID
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Amount
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Status
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Due Date
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Project
+                </TableHead>
+                <TableHead className="px-6 py-3 font-semibold text-slate-900 uppercase text-xs tracking-wider">
+                  Actions
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -304,7 +357,7 @@ export default function ClientDetailPage() {
                         {inv.id.slice(-6).toUpperCase()}
                       </TableCell>
                       <TableCell className="font-medium px-6 py-4 text-slate-900">
-                        ₹{inv.amount.toLocaleString()}
+                        ${inv.amount.toLocaleString()}
                       </TableCell>
                       <TableCell className="px-6 py-4">
                         <Badge variant="outline">{inv.status}</Badge>
@@ -314,10 +367,16 @@ export default function ClientDetailPage() {
                           ? new Date(inv.dueDate).toLocaleDateString()
                           : "N/A"}
                       </TableCell>
-                      <TableCell className="px-6 py-4">{inv.projectName}</TableCell>
+                      <TableCell className="px-6 py-4">
+                        {inv.projectName}
+                      </TableCell>
                       <TableCell className="px-6 py-4">
                         <Link href={`/invoices/${inv.id}`}>
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </Link>

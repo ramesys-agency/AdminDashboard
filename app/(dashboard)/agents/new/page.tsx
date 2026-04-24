@@ -40,7 +40,9 @@ export default function NewAgentPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -58,7 +60,9 @@ export default function NewAgentPage() {
       <div className="grid gap-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="name" className="text-sm font-semibold">Full Name</Label>
+            <Label htmlFor="name" className="text-sm font-semibold">
+              Full Name
+            </Label>
             <Input
               id="name"
               name="name"
@@ -70,7 +74,12 @@ export default function NewAgentPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="code" className="text-sm font-semibold text-primary">Referral Code</Label>
+            <Label
+              htmlFor="code"
+              className="text-sm font-semibold text-primary"
+            >
+              Referral Code
+            </Label>
             <Input
               id="code"
               name="code"
@@ -85,7 +94,9 @@ export default function NewAgentPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
+            <Label htmlFor="email" className="text-sm font-semibold">
+              Email Address
+            </Label>
             <Input
               id="email"
               name="email"
@@ -98,7 +109,9 @@ export default function NewAgentPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone" className="text-sm font-semibold">Phone Number (Optional)</Label>
+            <Label htmlFor="phone" className="text-sm font-semibold">
+              Phone Number (Optional)
+            </Label>
             <Input
               id="phone"
               name="phone"
@@ -111,10 +124,14 @@ export default function NewAgentPage() {
         </div>
 
         <div className="pt-4 border-t">
-          <h3 className="text-sm font-bold text-gray-900 mb-4 tracking-tight uppercase">Commission Configuration</h3>
+          <h3 className="text-sm font-bold text-gray-900 mb-4 tracking-tight uppercase">
+            Commission Configuration
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="commissionType" className="text-sm font-semibold">Type</Label>
+              <Label htmlFor="commissionType" className="text-sm font-semibold">
+                Type
+              </Label>
               <select
                 id="commissionType"
                 name="commissionType"
@@ -123,14 +140,19 @@ export default function NewAgentPage() {
                 onChange={handleChange}
               >
                 <option value="PERCENTAGE">Percentage (%)</option>
-                <option value="FLAT">Flat Amount (₹)</option>
+                <option value="FLAT">Flat Amount ($)</option>
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="commissionValue" className="text-sm font-semibold">Value</Label>
+              <Label
+                htmlFor="commissionValue"
+                className="text-sm font-semibold"
+              >
+                Value
+              </Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                  {formData.commissionType === "PERCENTAGE" ? "%" : "₹"}
+                  {formData.commissionType === "PERCENTAGE" ? "%" : "$"}
                 </span>
                 <Input
                   id="commissionValue"

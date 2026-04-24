@@ -32,7 +32,9 @@ export default function NewInvoicePage() {
     async function fetchProjects() {
       if (activeBusiness !== "ramesys") return;
       try {
-        const res = await apiClient.get<PaginatedResponse<Project>>("/ramesys/projects?limit=50");
+        const res = await apiClient.get<PaginatedResponse<Project>>(
+          "/ramesys/projects?limit=50",
+        );
         setProjects(res.data);
       } catch (err) {
         console.error("Failed to fetch projects for dropdown:", err);
@@ -45,7 +47,7 @@ export default function NewInvoicePage() {
     e.preventDefault();
     setLoading(true);
     console.log("Submitting Invoice Data:", formData);
-    
+
     setTimeout(() => {
       setLoading(false);
       setSuccess(true);
@@ -55,7 +57,9 @@ export default function NewInvoicePage() {
     }, 1000);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -72,7 +76,9 @@ export default function NewInvoicePage() {
     >
       <div className="grid gap-6">
         <div className="space-y-2">
-          <Label htmlFor="projectId" className="text-sm font-semibold">Project</Label>
+          <Label htmlFor="projectId" className="text-sm font-semibold">
+            Project
+          </Label>
           <select
             id="projectId"
             name="projectId"
@@ -83,14 +89,18 @@ export default function NewInvoicePage() {
           >
             <option value="">Select a project</option>
             {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
             ))}
           </select>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="amount" className="text-sm font-semibold">Invoice Amount (₹)</Label>
+            <Label htmlFor="amount" className="text-sm font-semibold">
+              Invoice Amount ($)
+            </Label>
             <Input
               id="amount"
               name="amount"
@@ -103,7 +113,9 @@ export default function NewInvoicePage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="status" className="text-sm font-semibold">Status</Label>
+            <Label htmlFor="status" className="text-sm font-semibold">
+              Status
+            </Label>
             <select
               id="status"
               name="status"
@@ -119,7 +131,9 @@ export default function NewInvoicePage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="dueDate" className="text-sm font-semibold">Due Date</Label>
+          <Label htmlFor="dueDate" className="text-sm font-semibold">
+            Due Date
+          </Label>
           <Input
             id="dueDate"
             name="dueDate"
@@ -132,7 +146,9 @@ export default function NewInvoicePage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="invoiceLink" className="text-sm font-semibold">External Invoice Link (Optional)</Label>
+          <Label htmlFor="invoiceLink" className="text-sm font-semibold">
+            External Invoice Link (Optional)
+          </Label>
           <Input
             id="invoiceLink"
             name="invoiceLink"

@@ -35,7 +35,9 @@ export default function NewProjectPage() {
     async function fetchClients() {
       if (activeBusiness !== "ramesys") return;
       try {
-        const res = await apiClient.get<PaginatedResponse<Client>>("/ramesys/clients?limit=100");
+        const res = await apiClient.get<PaginatedResponse<Client>>(
+          "/ramesys/clients?limit=100",
+        );
         setClients(res.data);
       } catch (err) {
         console.error("Failed to fetch clients for dropdown:", err);
@@ -49,10 +51,10 @@ export default function NewProjectPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    
+
     // Simulate API call
     console.log("Submitting Project Data:", formData);
-    
+
     setTimeout(() => {
       setLoading(false);
       setSuccess(true);
@@ -62,7 +64,11 @@ export default function NewProjectPage() {
     }, 1000);
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -79,7 +85,9 @@ export default function NewProjectPage() {
     >
       <div className="grid gap-6">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-semibold">Project Name</Label>
+          <Label htmlFor="name" className="text-sm font-semibold">
+            Project Name
+          </Label>
           <Input
             id="name"
             name="name"
@@ -92,7 +100,9 @@ export default function NewProjectPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
+          <Label htmlFor="description" className="text-sm font-semibold">
+            Description
+          </Label>
           <textarea
             id="description"
             name="description"
@@ -106,7 +116,9 @@ export default function NewProjectPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="clientId" className="text-sm font-semibold">Client</Label>
+            <Label htmlFor="clientId" className="text-sm font-semibold">
+              Client
+            </Label>
             <select
               id="clientId"
               name="clientId"
@@ -125,7 +137,9 @@ export default function NewProjectPage() {
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="status" className="text-sm font-semibold">Initial Status</Label>
+            <Label htmlFor="status" className="text-sm font-semibold">
+              Initial Status
+            </Label>
             <select
               id="status"
               name="status"
@@ -142,7 +156,9 @@ export default function NewProjectPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="startDate" className="text-sm font-semibold">Start Date</Label>
+            <Label htmlFor="startDate" className="text-sm font-semibold">
+              Start Date
+            </Label>
             <Input
               id="startDate"
               name="startDate"
@@ -153,7 +169,9 @@ export default function NewProjectPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="endDate" className="text-sm font-semibold">End Date (Estimated)</Label>
+            <Label htmlFor="endDate" className="text-sm font-semibold">
+              End Date (Estimated)
+            </Label>
             <Input
               id="endDate"
               name="endDate"
@@ -166,7 +184,9 @@ export default function NewProjectPage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="budget" className="text-sm font-semibold">Project Budget (₹)</Label>
+          <Label htmlFor="budget" className="text-sm font-semibold">
+            Project Budget ($)
+          </Label>
           <Input
             id="budget"
             name="budget"

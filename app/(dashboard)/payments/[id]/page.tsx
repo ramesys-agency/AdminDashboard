@@ -4,16 +4,27 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableRow } from "@/components/ui/table";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableRow,
-} from "@/components/ui/table";
-import { ArrowLeft, Loader2, Calendar, CreditCard, User, Landmark, ShieldCheck, Link as LinkIcon, Download } from "lucide-react";
+  ArrowLeft,
+  Loader2,
+  Calendar,
+  CreditCard,
+  User,
+  Landmark,
+  ShieldCheck,
+  Link as LinkIcon,
+  Download,
+} from "lucide-react";
 
 type PaymentDetail = {
   id: string;
@@ -37,9 +48,10 @@ export default function PaymentDetailPage() {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      // We'll try to fetch from vydhra first, or we need a generic route. 
+      // We'll try to fetch from vydhra first, or we need a generic route.
       // For now, let's assume we use the vydhra one as per previous service implementation if student exists
-      apiClient.get<PaymentDetail>(`/vydhra/payments/${id}`)
+      apiClient
+        .get<PaymentDetail>(`/vydhra/payments/${id}`)
         .then(setPayment)
         .catch((err) => {
           console.error("Failed to fetch payment:", err);
@@ -78,10 +90,16 @@ export default function PaymentDetailPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold tracking-tight">Transaction Proof</h1>
+          <h1 className="text-2xl font-bold tracking-tight">
+            Transaction Proof
+          </h1>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2"
+          >
             <Download className="h-4 w-4" />
             Export receipt
           </Button>
@@ -89,25 +107,39 @@ export default function PaymentDetailPage() {
       </div>
 
       {/* Payment Summary Header */}
-      <Card className={`overflow-hidden border-none shadow-lg ${isCompleted ? 'bg-slate-900' : 'bg-amber-600'} text-white`}>
+      <Card
+        className={`overflow-hidden border-none shadow-lg ${isCompleted ? "bg-slate-900" : "bg-amber-600"} text-white`}
+      >
         <CardContent className="p-10">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
             <div className="space-y-4">
               <div className="flex items-center gap-2">
-                <Badge className={`${isCompleted ? 'bg-emerald-500' : 'bg-white/20'} text-white border-none px-3 font-bold`}>
+                <Badge
+                  className={`${isCompleted ? "bg-emerald-500" : "bg-white/20"} text-white border-none px-3 font-bold`}
+                >
                   {payment.status}
                 </Badge>
-                <span className="text-white/60 text-xs font-medium uppercase tracking-widest">#{payment.id.toUpperCase()}</span>
+                <span className="text-white/60 text-xs font-medium uppercase tracking-widest">
+                  #{payment.id.toUpperCase()}
+                </span>
               </div>
-              <h2 className="text-5xl font-black tracking-tighter">₹{payment.amount.toLocaleString()}</h2>
+              <h2 className="text-5xl font-black tracking-tighter">
+                ${payment.amount.toLocaleString()}
+              </h2>
               <div className="flex items-center gap-2 text-white/70">
                 <Calendar className="h-4 w-4" />
-                <span className="text-sm font-medium">{new Date(payment.createdAt).toLocaleString()}</span>
+                <span className="text-sm font-medium">
+                  {new Date(payment.createdAt).toLocaleString()}
+                </span>
               </div>
             </div>
-            
+
             <div className="h-24 w-24 rounded-3xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-              {payment.method === 'UPI' ? <Landmark className="h-12 w-12" /> : <CreditCard className="h-12 w-12" />}
+              {payment.method === "UPI" ? (
+                <Landmark className="h-12 w-12" />
+              ) : (
+                <CreditCard className="h-12 w-12" />
+              )}
             </div>
           </div>
         </CardContent>
@@ -126,16 +158,30 @@ export default function PaymentDetailPage() {
             <Table>
               <TableBody>
                 <TableRow className="border-b">
-                  <TableCell className="font-medium text-muted-foreground w-1/3 px-6 py-4">Name</TableCell>
-                  <TableCell className="px-6 py-4 font-bold">{payment.student?.name || payment.project?.name || "System Record"}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground w-1/3 px-6 py-4">
+                    Name
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-bold">
+                    {payment.student?.name ||
+                      payment.project?.name ||
+                      "System Record"}
+                  </TableCell>
                 </TableRow>
                 <TableRow className="border-b">
-                  <TableCell className="font-medium text-muted-foreground px-6 py-4">Reference ID</TableCell>
-                  <TableCell className="px-6 py-4 font-mono text-xs">{payment.student?.id || payment.project?.id || "N/A"}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground px-6 py-4">
+                    Reference ID
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-mono text-xs">
+                    {payment.student?.id || payment.project?.id || "N/A"}
+                  </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium text-muted-foreground px-6 py-4">Contact</TableCell>
-                  <TableCell className="px-6 py-4">{payment.student?.email || "N/A"}</TableCell>
+                  <TableCell className="font-medium text-muted-foreground px-6 py-4">
+                    Contact
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    {payment.student?.email || "N/A"}
+                  </TableCell>
                 </TableRow>
               </TableBody>
             </Table>
@@ -154,17 +200,32 @@ export default function PaymentDetailPage() {
             <Table>
               <TableBody>
                 <TableRow className="border-b border-emerald-50">
-                  <TableCell className="font-medium text-emerald-700/60 w-1/3 px-6 py-4">Method</TableCell>
-                  <TableCell className="px-6 py-4 font-bold">{payment.method || "UNSPECIFIED"}</TableCell>
+                  <TableCell className="font-medium text-emerald-700/60 w-1/3 px-6 py-4">
+                    Method
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-bold">
+                    {payment.method || "UNSPECIFIED"}
+                  </TableCell>
                 </TableRow>
                 <TableRow className="border-b border-emerald-50">
-                  <TableCell className="font-medium text-emerald-700/60 px-6 py-4">Network ID</TableCell>
-                  <TableCell className="px-6 py-4 font-mono text-xs">{payment.transactionId || "INTERNAL_GEN"}</TableCell>
+                  <TableCell className="font-medium text-emerald-700/60 px-6 py-4">
+                    Network ID
+                  </TableCell>
+                  <TableCell className="px-6 py-4 font-mono text-xs">
+                    {payment.transactionId || "INTERNAL_GEN"}
+                  </TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium text-emerald-700/60 px-6 py-4">Verified</TableCell>
+                  <TableCell className="font-medium text-emerald-700/60 px-6 py-4">
+                    Verified
+                  </TableCell>
                   <TableCell className="px-6 py-4">
-                    <Badge variant="outline" className="bg-emerald-100 text-emerald-700 border-emerald-200">System Verified</Badge>
+                    <Badge
+                      variant="outline"
+                      className="bg-emerald-100 text-emerald-700 border-emerald-200"
+                    >
+                      System Verified
+                    </Badge>
                   </TableCell>
                 </TableRow>
               </TableBody>
@@ -177,27 +238,45 @@ export default function PaymentDetailPage() {
       <Card className="border-none shadow-sm overflow-hidden">
         <CardHeader className="bg-slate-50/50 border-b flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-sm font-bold uppercase tracking-wider">Related Entities</CardTitle>
-            <CardDescription className="text-[10px] mt-0.5">Resources connected to this payment</CardDescription>
+            <CardTitle className="text-sm font-bold uppercase tracking-wider">
+              Related Entities
+            </CardTitle>
+            <CardDescription className="text-[10px] mt-0.5">
+              Resources connected to this payment
+            </CardDescription>
           </div>
           <LinkIcon className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
           {payment.course && (
             <div className="flex flex-col gap-2 p-4 rounded-xl border bg-slate-50/30 group hover:border-blue-200 hover:bg-blue-50/20 transition-all">
-              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Purchased Course</p>
-              <p className="font-bold text-slate-800 truncate">{payment.course.name}</p>
-              <Link href={`/courses/${payment.course.id}`} className="inline-flex items-center text-[10px] font-bold text-blue-600 mt-2">
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Purchased Course
+              </p>
+              <p className="font-bold text-slate-800 truncate">
+                {payment.course.name}
+              </p>
+              <Link
+                href={`/courses/${payment.course.id}`}
+                className="inline-flex items-center text-[10px] font-bold text-blue-600 mt-2"
+              >
                 VIEW COURSE <ArrowUpRight className="h-3 w-3 ml-1" />
               </Link>
             </div>
           )}
-          
+
           {payment.invoice && (
             <div className="flex flex-col gap-2 p-4 rounded-xl border bg-slate-50/30 group hover:border-purple-200 hover:bg-purple-50/20 transition-all">
-              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Linked Invoice</p>
-              <p className="font-bold text-slate-800">#{payment.invoice.id.slice(-8).toUpperCase()}</p>
-              <Link href={`/invoices/${payment.invoice.id}`} className="inline-flex items-center text-[10px] font-bold text-purple-600 mt-2">
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Linked Invoice
+              </p>
+              <p className="font-bold text-slate-800">
+                #{payment.invoice.id.slice(-8).toUpperCase()}
+              </p>
+              <Link
+                href={`/invoices/${payment.invoice.id}`}
+                className="inline-flex items-center text-[10px] font-bold text-purple-600 mt-2"
+              >
                 VIEW INVOICE <ArrowUpRight className="h-3 w-3 ml-1" />
               </Link>
             </div>
@@ -205,9 +284,16 @@ export default function PaymentDetailPage() {
 
           {payment.agent && (
             <div className="flex flex-col gap-2 p-4 rounded-xl border bg-slate-50/30 group hover:border-emerald-200 hover:bg-emerald-50/20 transition-all">
-              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">Referral Agent</p>
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Referral Agent
+              </p>
               <p className="font-bold text-slate-800">{payment.agent.name}</p>
-              <Badge variant="outline" className="w-fit text-[9px] mt-1 font-black">{payment.agent.code}</Badge>
+              <Badge
+                variant="outline"
+                className="w-fit text-[9px] mt-1 font-black"
+              >
+                {payment.agent.code}
+              </Badge>
             </div>
           )}
         </CardContent>
@@ -218,15 +304,16 @@ export default function PaymentDetailPage() {
 
 function ArrowUpRight({ className }: { className?: string }) {
   return (
-    <svg 
-      className={className} 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" height="24" 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
       strokeLinejoin="round"
     >
       <line x1="7" y1="17" x2="17" y2="7"></line>

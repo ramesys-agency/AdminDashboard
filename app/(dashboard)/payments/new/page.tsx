@@ -169,7 +169,7 @@ export default function NewPaymentPage() {
       <div className="grid gap-6">
         <div className="space-y-2">
           <Label htmlFor="amount" className="text-sm font-semibold">
-            Payment Amount (₹)
+            Payment Amount ($)
           </Label>
           <Input
             id="amount"
@@ -253,7 +253,7 @@ export default function NewPaymentPage() {
             <option value="">None</option>
             {invoices.map((i) => (
               <option key={i.id} value={i.id}>
-                Invoice #{i.id.slice(-6)} - ₹{i.amount}
+                Invoice #{i.id.slice(-6)} - ${i.amount}
               </option>
             ))}
           </select>

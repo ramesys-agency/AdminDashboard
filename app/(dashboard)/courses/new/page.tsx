@@ -38,7 +38,9 @@ export default function NewCoursePage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -55,7 +57,9 @@ export default function NewCoursePage() {
     >
       <div className="grid gap-6">
         <div className="space-y-2">
-          <Label htmlFor="name" className="text-sm font-semibold">Course Title</Label>
+          <Label htmlFor="name" className="text-sm font-semibold">
+            Course Title
+          </Label>
           <Input
             id="name"
             name="name"
@@ -68,7 +72,9 @@ export default function NewCoursePage() {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="description" className="text-sm font-semibold">Description</Label>
+          <Label htmlFor="description" className="text-sm font-semibold">
+            Description
+          </Label>
           <Textarea
             id="description"
             name="description"
@@ -82,9 +88,13 @@ export default function NewCoursePage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
           <div className="space-y-2">
-            <Label htmlFor="price" className="text-sm font-semibold">Price (₹)</Label>
+            <Label htmlFor="price" className="text-sm font-semibold">
+              Price ($)
+            </Label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">₹</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">
+                $
+              </span>
               <Input
                 id="price"
                 name="price"

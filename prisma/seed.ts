@@ -2,6 +2,7 @@
 import { BusinessType, CommissionType, DiscountType } from "@prisma/client";
 import prisma from "../lib/prisma";
 import bcrypt from "bcryptjs";
+import { coursesData } from "./data/courses";
 
 async function main() {
   console.log("🌱 Seeding database...");
@@ -61,33 +62,31 @@ async function main() {
   console.log("✅ Ramesys base data created");
 
   // ─── Vydhra Courses ──────────────────────────────────────────
-  const course1 = await prisma.course.create({
-    data: {
-      businessId: vydhra.id,
-      name: "Full Stack Web Development (MERN)",
-      description:
-        "Master React, Node.js, and MongoDB with real-world projects.",
-      price: 45000,
-    },
-  });
-
-  const course2 = await prisma.course.create({
-    data: {
-      businessId: vydhra.id,
-      name: "AI & Machine Learning Bootcamp",
-      description: "Learn Python, TensorFlow, and PyTorch from scratch.",
-      price: 65000,
-    },
-  });
-
-  const course3 = await prisma.course.create({
-    data: {
-      businessId: vydhra.id,
-      name: "UI/UX Design Masterclass",
-      description: "Learn Figma, Adobe XD and advanced prototyping.",
-      price: 25000,
-    },
-  });
+  const courses: any[] = [];
+  for (const course of coursesData) {
+    const createdCourse = await prisma.course.upsert({
+      where: { slug: course.slug },
+      update: {
+        name: course.title,
+        description: course.description,
+        price: course.price,
+        priceINR: (course as any).priceINR,
+        priceUSD: (course as any).priceUSD,
+        details: course as any,
+      },
+      create: {
+        businessId: vydhra.id,
+        slug: course.slug,
+        name: course.title,
+        description: course.description,
+        price: course.price,
+        priceINR: (course as any).priceINR,
+        priceUSD: (course as any).priceUSD,
+        details: course as any,
+      },
+    });
+    courses.push(createdCourse);
+  }
 
   console.log("✅ Courses created");
 
@@ -125,7 +124,7 @@ async function main() {
   const enr1 = await prisma.courseEnrollment.create({
     data: {
       studentId: student1.id,
-      courseId: course1.id,
+      courseId: courses[1].id, // MERN + AI
       status: "ENROLLED",
     },
   });
@@ -133,7 +132,7 @@ async function main() {
   const enr2 = await prisma.courseEnrollment.create({
     data: {
       studentId: student2.id,
-      courseId: course1.id,
+      courseId: courses[1].id, // MERN + AI
       status: "ENROLLED",
     },
   });
@@ -141,7 +140,7 @@ async function main() {
   const enr3 = await prisma.courseEnrollment.create({
     data: {
       studentId: student3.id,
-      courseId: course2.id,
+      courseId: courses[0].id, // AI Agents
       status: "ENROLLED",
     },
   });
@@ -149,7 +148,7 @@ async function main() {
   await prisma.courseEnrollment.create({
     data: {
       studentId: student1.id,
-      courseId: course3.id,
+      courseId: courses[4].id, // SQL
       status: "COMPLETED",
     },
   });
@@ -183,7 +182,7 @@ async function main() {
     },
   });
 
-  // Agent Sanya with ₹2000 flat commission
+  // Agent Sanya with $2000 flat commission
   const agentSanya = await prisma.agent.create({
     data: {
       businessId: vydhra.id,
@@ -204,7 +203,7 @@ async function main() {
       businessId: vydhra.id,
       code: "SANYA5",
       discountType: DiscountType.FLAT,
-      discountValue: 1000, // Changed to Flat ₹1000
+      discountValue: 1000, // Changed to Flat $1000
       maxUses: 50,
     },
   });

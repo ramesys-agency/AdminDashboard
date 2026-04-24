@@ -61,6 +61,54 @@ export async function getStudentById(id: string) {
     },
   });
 }
+export async function upsertStudent(data: {
+  name: string;
+  email: string;
+  phone?: string | null;
+  country?: string | null;
+}) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  // Try to find existing student by email
+  const existing = await prisma.student.findUnique({ where: { email: data.email } });
+  if (existing) {
+    // Update name/phone/country if provided
+    return prisma.student.update({
+      where: { id: existing.id },
+      data: {
+        name: data.name,
+        phone: data.phone ?? existing.phone,
+        country: data.country ?? existing.country,
+      },
+    });
+  }
+
+  return prisma.student.create({
+    data: {
+      name: data.name,
+      email: data.email,
+      phone: data.phone ?? null,
+      country: data.country ?? null,
+      businessId: vydhra.id,
+    },
+  });
+}
+
+export async function createEnrollment(studentId: string, courseId: string) {
+  return prisma.courseEnrollment.create({
+    data: {
+      studentId,
+      courseId,
+      status: "ACTIVE",
+    },
+  });
+}
+
 export async function createStudent(data: { name: string; email: string; phone?: string | null }) {
   const vydhra = await prisma.business.findFirst({
     where: { type: "COURSE_SELLING" },

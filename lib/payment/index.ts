@@ -86,3 +86,42 @@ export async function updatePaymentStatus(id: string, status: string) {
     data: { status }
   });
 }
+
+export async function createPayment(data: {
+  amount: number;
+  currency?: string;
+  status: string;
+  method?: string;
+  studentId: string;
+  courseEnrollmentId?: string;
+  couponId?: string;
+  agentId?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
+  razorpaySignature?: string;
+}) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  // Create payment record
+  return prisma.payment.create({
+    data: {
+      businessId: vydhra.id,
+      amount: Number(data.amount),
+      currency: "USD",
+      status: data.status,
+      method: data.method || "RAZORPAY",
+      studentId: data.studentId,
+      courseEnrollmentId: data.courseEnrollmentId || null,
+      couponId: data.couponId || null,
+      agentId: data.agentId || null,
+      razorpayOrderId: data.razorpayOrderId || null,
+      razorpayPaymentId: data.razorpayPaymentId || null,
+      razorpaySignature: data.razorpaySignature || null,
+    }
+  });
+}

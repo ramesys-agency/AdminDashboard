@@ -86,7 +86,7 @@ export default function PaymentsPage() {
     { header: "ID", accessor: "id" as const },
     {
       header: "Amount",
-      accessor: (row: PaymentRow) => `₹${row.amount.toLocaleString()}`,
+      accessor: (row: PaymentRow) => `$${row.amount.toLocaleString()}`,
     },
     {
       header: "Status",

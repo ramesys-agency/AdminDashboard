@@ -41,7 +41,9 @@ export default function NewCouponPage() {
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+  ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
@@ -58,7 +60,9 @@ export default function NewCouponPage() {
     >
       <div className="grid gap-6">
         <div className="space-y-2">
-          <Label htmlFor="code" className="text-sm font-semibold text-primary">Coupon Code</Label>
+          <Label htmlFor="code" className="text-sm font-semibold text-primary">
+            Coupon Code
+          </Label>
           <Input
             id="code"
             name="code"
@@ -72,7 +76,9 @@ export default function NewCouponPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
-            <Label htmlFor="discountType" className="text-sm font-semibold">Discount Type</Label>
+            <Label htmlFor="discountType" className="text-sm font-semibold">
+              Discount Type
+            </Label>
             <select
               id="discountType"
               name="discountType"
@@ -81,14 +87,16 @@ export default function NewCouponPage() {
               onChange={handleChange}
             >
               <option value="PERCENTAGE">Percentage (%)</option>
-              <option value="FLAT">Flat Amount (₹)</option>
+              <option value="FLAT">Flat Amount ($)</option>
             </select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="discountValue" className="text-sm font-semibold">Discount Value</Label>
+            <Label htmlFor="discountValue" className="text-sm font-semibold">
+              Discount Value
+            </Label>
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                {formData.discountType === "PERCENTAGE" ? "%" : "₹"}
+                {formData.discountType === "PERCENTAGE" ? "%" : "$"}
               </span>
               <Input
                 id="discountValue"
@@ -105,7 +113,9 @@ export default function NewCouponPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
           <div className="space-y-2">
-            <Label htmlFor="maxUses" className="text-sm font-semibold">Usage Limit (Optional)</Label>
+            <Label htmlFor="maxUses" className="text-sm font-semibold">
+              Usage Limit (Optional)
+            </Label>
             <Input
               id="maxUses"
               name="maxUses"
@@ -117,7 +127,9 @@ export default function NewCouponPage() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="validUntil" className="text-sm font-semibold">Expiry Date (Optional)</Label>
+            <Label htmlFor="validUntil" className="text-sm font-semibold">
+              Expiry Date (Optional)
+            </Label>
             <Input
               id="validUntil"
               name="validUntil"

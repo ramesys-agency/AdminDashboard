@@ -16,7 +16,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, ArrowLeft, Loader2, Mail, Phone, Calendar, User, GraduationCap, DollarSign } from "lucide-react";
+import {
+  Eye,
+  ArrowLeft,
+  Loader2,
+  Mail,
+  Phone,
+  Calendar,
+  User,
+  GraduationCap,
+  DollarSign,
+} from "lucide-react";
 
 type StudentDetail = {
   id: string;
@@ -51,7 +61,8 @@ export default function StudentDetailPage() {
   useEffect(() => {
     if (id) {
       setLoading(true);
-      apiClient.get<StudentDetail>(`/vydhra/students/${id}`)
+      apiClient
+        .get<StudentDetail>(`/vydhra/students/${id}`)
         .then(setStudent)
         .catch((err) => {
           console.error("Failed to fetch student:", err);
@@ -152,34 +163,65 @@ export default function StudentDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/10 hover:bg-muted/10">
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Course Name</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Status</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Price</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Enrolled On</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900 text-right">Actions</TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Course Name
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Status
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Price
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Enrolled On
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900 text-right">
+                      Actions
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {student.enrollments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground bg-muted/5">
+                      <TableCell
+                        colSpan={5}
+                        className="text-center py-12 text-muted-foreground bg-muted/5"
+                      >
                         No enrollments found for this student.
                       </TableCell>
                     </TableRow>
                   ) : (
                     student.enrollments.map((e) => (
-                      <TableRow key={e.id} className="hover:bg-muted/5 transition-colors border-b">
-                        <TableCell className="px-6 py-4 font-medium text-slate-900">{e.course.name}</TableCell>
+                      <TableRow
+                        key={e.id}
+                        className="hover:bg-muted/5 transition-colors border-b"
+                      >
+                        <TableCell className="px-6 py-4 font-medium text-slate-900">
+                          {e.course.name}
+                        </TableCell>
                         <TableCell className="px-6 py-4">
-                          <Badge variant={e.status === 'ENROLLED' ? 'default' : 'secondary'} className="rounded-full px-3">
+                          <Badge
+                            variant={
+                              e.status === "ENROLLED" ? "default" : "secondary"
+                            }
+                            className="rounded-full px-3"
+                          >
                             {e.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-slate-600 font-medium">₹{e.course.price.toLocaleString()}</TableCell>
-                        <TableCell className="px-6 py-4 text-slate-500">{new Date(e.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="px-6 py-4 text-slate-600 font-medium">
+                          ${e.course.price.toLocaleString()}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-slate-500">
+                          {new Date(e.createdAt).toLocaleDateString()}
+                        </TableCell>
                         <TableCell className="px-6 py-4 text-right">
                           <Link href={`/courses/${e.course.id}`}>
-                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                            >
                               <Eye className="h-4 w-4" />
                             </Button>
                           </Link>
@@ -205,37 +247,65 @@ export default function StudentDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/10 hover:bg-muted/10">
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">ID</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Amount</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Status</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Method</TableHead>
-                    <TableHead className="px-6 py-4 font-semibold text-slate-900">Date</TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      ID
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Amount
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Status
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Method
+                    </TableHead>
+                    <TableHead className="px-6 py-4 font-semibold text-slate-900">
+                      Date
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {student.payments.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground bg-muted/5">
+                      <TableCell
+                        colSpan={5}
+                        className="text-center py-12 text-muted-foreground bg-muted/5"
+                      >
                         No payments found for this student.
                       </TableCell>
                     </TableRow>
                   ) : (
                     student.payments.map((p) => (
-                      <TableRow key={p.id} className="hover:bg-muted/5 transition-colors border-b">
+                      <TableRow
+                        key={p.id}
+                        className="hover:bg-muted/5 transition-colors border-b"
+                      >
                         <TableCell className="px-6 py-4 text-xs font-mono text-muted-foreground">
                           {p.id.slice(-8).toUpperCase()}
                         </TableCell>
-                        <TableCell className="px-6 py-4 font-bold text-slate-900">₹{p.amount.toLocaleString()}</TableCell>
+                        <TableCell className="px-6 py-4 font-bold text-slate-900">
+                          ${p.amount.toLocaleString()}
+                        </TableCell>
                         <TableCell className="px-6 py-4">
-                          <Badge 
-                            variant={p.status === 'COMPLETED' ? 'default' : p.status === 'FAILED' ? 'destructive' : 'outline'}
+                          <Badge
+                            variant={
+                              p.status === "COMPLETED"
+                                ? "default"
+                                : p.status === "FAILED"
+                                  ? "destructive"
+                                  : "outline"
+                            }
                             className="rounded-full px-3"
                           >
                             {p.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="px-6 py-4 text-slate-600">{p.method || "N/A"}</TableCell>
-                        <TableCell className="px-6 py-4 text-slate-500">{new Date(p.createdAt).toLocaleDateString()}</TableCell>
+                        <TableCell className="px-6 py-4 text-slate-600">
+                          {p.method || "N/A"}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-slate-500">
+                          {new Date(p.createdAt).toLocaleDateString()}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}

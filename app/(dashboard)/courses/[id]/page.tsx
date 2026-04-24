@@ -127,7 +127,7 @@ export default function CourseDetailPage() {
                   Price
                 </p>
                 <p className="text-2xl font-black">
-                  ₹{course.price.toLocaleString()}
+                  ${course.price.toLocaleString()}
                 </p>
               </div>
               <Badge className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-50 border-none backdrop-blur-sm px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
@@ -167,7 +167,7 @@ export default function CourseDetailPage() {
               </p>
             </div>
             <p className="text-3xl font-black mt-1 ml-1 text-emerald-700">
-              ₹{course.stats.totalRevenue.toLocaleString()}
+              ${course.stats.totalRevenue.toLocaleString()}
             </p>
           </CardContent>
         </Card>
@@ -183,7 +183,7 @@ export default function CourseDetailPage() {
               </p>
             </div>
             <p className="text-3xl font-black mt-1 ml-1">
-              ₹
+              $
               {course.stats.totalEnrollments > 0
                 ? (
                     course.stats.totalRevenue / course.stats.totalEnrollments

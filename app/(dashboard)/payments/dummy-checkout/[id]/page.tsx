@@ -3,7 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { CheckCircle2, XCircle, CreditCard, ShieldCheck } from "lucide-react";
 
 type MockPayment = {
@@ -22,7 +28,9 @@ export default function DummyCheckoutPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const existing = JSON.parse(localStorage.getItem("mock_payments") || "[]");
+      const existing = JSON.parse(
+        localStorage.getItem("mock_payments") || "[]",
+      );
       const found = existing.find((p: MockPayment) => p.id === id);
       if (found) {
         setPayment(found);
@@ -32,11 +40,13 @@ export default function DummyCheckoutPage() {
 
   const updateStatus = (newStatus: "COMPLETED" | "FAILED") => {
     setUpdating(true);
-    
+
     if (typeof window !== "undefined") {
-      const existing = JSON.parse(localStorage.getItem("mock_payments") || "[]");
-      const updated = existing.map((p: MockPayment) => 
-        p.id === id ? { ...p, status: newStatus } : p
+      const existing = JSON.parse(
+        localStorage.getItem("mock_payments") || "[]",
+      );
+      const updated = existing.map((p: MockPayment) =>
+        p.id === id ? { ...p, status: newStatus } : p,
       );
       localStorage.setItem("mock_payments", JSON.stringify(updated));
     }
@@ -44,7 +54,7 @@ export default function DummyCheckoutPage() {
     setTimeout(() => {
       setUpdating(false);
       setResult(newStatus === "COMPLETED" ? "SUCCESS" : "FAILED");
-      
+
       setTimeout(() => {
         router.push("/payments");
       }, 2000);
@@ -55,16 +65,28 @@ export default function DummyCheckoutPage() {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <Card className="max-w-md w-full text-center p-12 space-y-6 animate-in fade-in zoom-in duration-500 shadow-2xl border-none">
-          <div className={`mx-auto h-24 w-24 rounded-full flex items-center justify-center ${result === "SUCCESS" ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
-            {result === "SUCCESS" ? <CheckCircle2 className="h-14 w-14" /> : <XCircle className="h-14 w-14" />}
+          <div
+            className={`mx-auto h-24 w-24 rounded-full flex items-center justify-center ${result === "SUCCESS" ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}
+          >
+            {result === "SUCCESS" ? (
+              <CheckCircle2 className="h-14 w-14" />
+            ) : (
+              <XCircle className="h-14 w-14" />
+            )}
           </div>
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold">{result === "SUCCESS" ? "Payment Successful" : "Payment Failed"}</h2>
+            <h2 className="text-3xl font-bold">
+              {result === "SUCCESS" ? "Payment Successful" : "Payment Failed"}
+            </h2>
             <p className="text-muted-foreground text-lg">
-              {result === "SUCCESS" ? "Thank you! Your payment has been processed." : "Something went wrong with the transaction."}
+              {result === "SUCCESS"
+                ? "Thank you! Your payment has been processed."
+                : "Something went wrong with the transaction."}
             </p>
           </div>
-          <p className="text-sm text-muted-foreground animate-pulse pt-4">Redirecting you back to the dashboard...</p>
+          <p className="text-sm text-muted-foreground animate-pulse pt-4">
+            Redirecting you back to the dashboard...
+          </p>
         </Card>
       </div>
     );
@@ -75,7 +97,9 @@ export default function DummyCheckoutPage() {
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
         <div className="text-center space-y-4">
           <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-muted-foreground font-medium">Loading secure payment gateway...</p>
+          <p className="text-muted-foreground font-medium">
+            Loading secure payment gateway...
+          </p>
         </div>
       </div>
     );
@@ -97,31 +121,41 @@ export default function DummyCheckoutPage() {
               <CreditCard className="h-5 w-5 text-muted-foreground" />
               Order Summary
             </CardTitle>
-            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded">TEST MODE</span>
+            <span className="text-xs font-bold bg-amber-100 text-amber-700 px-2 py-1 rounded">
+              TEST MODE
+            </span>
           </div>
           <CardDescription className="text-base">
-            Payment for <span className="font-semibold text-foreground">{payment.projectName}</span>
+            Payment for{" "}
+            <span className="font-semibold text-foreground">
+              {payment.projectName}
+            </span>
           </CardDescription>
           <div className="mt-6">
-            <div className="text-4xl font-extrabold text-foreground">₹{payment.amount.toLocaleString()}</div>
-            <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-semibold">Reference: {payment.id}</div>
+            <div className="text-4xl font-extrabold text-foreground">
+              ${payment.amount.toLocaleString()}
+            </div>
+            <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider font-semibold">
+              Reference: {payment.id}
+            </div>
           </div>
         </CardHeader>
-        
         <CardContent className="bg-white dark:bg-slate-900 p-8 space-y-8">
           <div className="space-y-4">
-            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest">Simulation Controls</h3>
+            <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest">
+              Simulation Controls
+            </h3>
             <div className="grid gap-4">
-              <Button 
-                onClick={() => updateStatus("COMPLETED")} 
+              <Button
+                onClick={() => updateStatus("COMPLETED")}
                 disabled={updating}
                 className="h-14 text-lg font-bold bg-emerald-600 hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-200 dark:shadow-none"
               >
                 {updating ? "Processing..." : "Complete Payment (Success)"}
               </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => updateStatus("FAILED")} 
+              <Button
+                variant="outline"
+                onClick={() => updateStatus("FAILED")}
                 disabled={updating}
                 className="h-14 text-lg font-bold border-2 border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 transition-all"
               >
@@ -129,16 +163,19 @@ export default function DummyCheckoutPage() {
               </Button>
             </div>
           </div>
-          
+
           <div className="pt-4 border-t flex items-center justify-center gap-2 text-xs text-muted-foreground font-medium">
-             <ShieldCheck className="h-4 w-4" />
-             256-bit SSL Secure Transaction
+            <ShieldCheck className="h-4 w-4" />
+            256-bit SSL Secure Transaction
           </div>
         </CardContent>
       </Card>
 
       <footer className="text-center text-sm text-muted-foreground">
-        <p>&copy; {new Date().getFullYear()} AdminDashboard Demo Gateway. No real money will be charged.</p>
+        <p>
+          &copy; {new Date().getFullYear()} AdminDashboard Demo Gateway. No real
+          money will be charged.
+        </p>
       </footer>
     </div>
   );
