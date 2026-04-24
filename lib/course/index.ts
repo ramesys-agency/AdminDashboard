@@ -7,6 +7,18 @@ export type GetCoursesParams = {
   search?: string;
 };
 
+type RawCourse = {
+  id: string;
+  name: string;
+  description: string | null;
+  slug: string;
+  price: number;
+  businessId: string;
+  createdAt: Date;
+  updatedAt: Date;
+  enrollment_count?: number;
+};
+
 export async function getCourses({ page = 1, limit = 10, search }: GetCoursesParams = {}) {
   const skip = (page - 1) * limit;
 
@@ -20,7 +32,7 @@ export async function getCourses({ page = 1, limit = 10, search }: GetCoursesPar
     ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
     ORDER BY c."createdAt" DESC
     LIMIT ${limit} OFFSET ${skip}
-  `;
+  ` as RawCourse[];
 
   const totalResult = await prisma.$queryRaw`
     SELECT COUNT(*)::int as count 
@@ -28,12 +40,12 @@ export async function getCourses({ page = 1, limit = 10, search }: GetCoursesPar
     JOIN "Business" b ON c."businessId" = b.id
     WHERE b.type = 'COURSE_SELLING'
     ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
-  ` as any[];
+  ` as { count: number }[];
 
   const total = totalResult[0]?.count || 0;
 
   return {
-    data: (courses as any[]).map(c => ({
+    data: courses.map(c => ({
       ...c,
       _count: { enrollments: c.enrollment_count }
     })),
@@ -48,13 +60,13 @@ export async function getCourses({ page = 1, limit = 10, search }: GetCoursesPar
 
 export async function getCourseBySlug(slug: string) {
   const result = await prisma.$queryRaw`SELECT * FROM "Course" WHERE slug ILIKE ${slug} LIMIT 1`;
-  const courses = result as any[];
+  const courses = result as RawCourse[];
   return courses.length > 0 ? courses[0] : null;
 }
 
 export async function getCourseById(id: string) {
   const result = await prisma.$queryRaw`SELECT * FROM "Course" WHERE id = ${id} LIMIT 1`;
-  const courses = result as any[];
+  const courses = result as RawCourse[];
   const course = courses.length > 0 ? courses[0] : null;
 
   if (!course) return null;
@@ -100,6 +112,10 @@ export async function createCourse(data: { name: string; description?: string | 
     data: {
       ...data,
       businessId: vydhra.id,
+      slug: data.name
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]+/g, ""),
     },
   });
 }

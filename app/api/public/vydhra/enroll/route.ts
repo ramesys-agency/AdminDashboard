@@ -19,7 +19,6 @@ export async function POST(req: Request) {
       courseSlug,
       courseName,
       amount, // in USD (number)
-      currency = "USD",
       couponCode,
     } = body;
 

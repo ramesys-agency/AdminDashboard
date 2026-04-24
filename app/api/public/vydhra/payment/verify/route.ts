@@ -15,7 +15,7 @@ export async function POST(req: Request) {
       courseId,
       couponId,
       amount, // in USD (number)
-      currency: "USD",
+      currency = "USD",
     } = body;
 
     // --- Validate required fields ---
