@@ -1,10 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { BusinessType, CommissionType, DiscountType } from "@prisma/client";
+import {
+  BusinessType,
+  CommissionType,
+  DiscountType,
+  BatchStatus,
+} from "@prisma/client";
 import prisma from "../lib/prisma";
 import bcrypt from "bcryptjs";
 import { coursesData } from "./data/courses";
 
 async function main() {
+  console.log("🧹 Cleaning up database...");
+  await prisma.payment.deleteMany({});
+  await prisma.invoice.deleteMany({});
+  await prisma.courseEnrollment.deleteMany({});
+  await prisma.courseBatch.deleteMany({});
+  await prisma.project.deleteMany({});
+  await prisma.client.deleteMany({});
+  await prisma.student.deleteMany({});
+  await prisma.course.deleteMany({});
+  await prisma.enquiry.deleteMany({});
+  await prisma.coupon.deleteMany({});
+  await prisma.agent.deleteMany({});
+  await prisma.business.deleteMany({});
+  await prisma.adminUser.deleteMany({});
+
   console.log("🌱 Seeding database...");
 
   // ─── Businesses ──────────────────────────────────────────────
@@ -61,8 +82,9 @@ async function main() {
 
   console.log("✅ Ramesys base data created");
 
-  // ─── Vydhra Courses ──────────────────────────────────────────
+  // ─── Vydhra Courses & Batches ──────────────────────────────────
   const courses: any[] = [];
+  const batches: any[] = [];
   for (const course of coursesData) {
     const createdCourse = await prisma.course.upsert({
       where: { slug: course.slug },
@@ -86,9 +108,25 @@ async function main() {
       },
     });
     courses.push(createdCourse);
+
+    // Create a default batch for each course
+    const createdBatch = await prisma.courseBatch.create({
+      data: {
+        courseId: createdCourse.id,
+        name: "Cohort 1 (Launch Batch)",
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // starts in 7 days
+        endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000), // approx 2 months duration
+        maxSeats: 50,
+        price: course.price,
+        priceINR: (course as any).priceINR,
+        priceUSD: (course as any).priceUSD,
+        status: BatchStatus.UPCOMING,
+      },
+    });
+    batches.push(createdBatch);
   }
 
-  console.log("✅ Courses created");
+  console.log("✅ Courses and Course Batches created");
 
   // ─── Vydhra Students ──────────────────────────────────────────
   const student1 = await prisma.student.create({
@@ -125,6 +163,7 @@ async function main() {
     data: {
       studentId: student1.id,
       courseId: courses[1].id, // MERN + AI
+      batchId: batches[1].id, // MERN + AI Batch
       status: "ENROLLED",
     },
   });
@@ -133,6 +172,7 @@ async function main() {
     data: {
       studentId: student2.id,
       courseId: courses[1].id, // MERN + AI
+      batchId: batches[1].id, // MERN + AI Batch
       status: "ENROLLED",
     },
   });
@@ -141,6 +181,7 @@ async function main() {
     data: {
       studentId: student3.id,
       courseId: courses[0].id, // AI Agents
+      batchId: batches[0].id, // AI Agents Batch
       status: "ENROLLED",
     },
   });
@@ -149,6 +190,7 @@ async function main() {
     data: {
       studentId: student1.id,
       courseId: courses[4].id, // SQL
+      batchId: batches[4].id, // SQL Batch
       status: "COMPLETED",
     },
   });
@@ -203,7 +245,7 @@ async function main() {
       businessId: vydhra.id,
       code: "SANYA5",
       discountType: DiscountType.FLAT,
-      discountValue: 1000, // Changed to Flat $1000
+      discountValue: 1000, // Flat $1000
       maxUses: 50,
     },
   });

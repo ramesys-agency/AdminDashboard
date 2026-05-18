@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
@@ -65,7 +66,7 @@ export default function CouponDetailPage() {
         .get<CouponDetail>(`/vydhra/coupons/${id}`)
         .then(setCoupon)
         .catch((err) => {
-          console.error("Failed to fetch coupon:", err);
+          toast.error("Failed to load coupon.");
         })
         .finally(() => setLoading(false));
     }
@@ -96,7 +97,7 @@ export default function CouponDetailPage() {
   const isActive = !isExpired && !isFullyUsed;
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/coupons">

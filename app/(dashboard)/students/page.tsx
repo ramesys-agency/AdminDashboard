@@ -9,6 +9,7 @@ import { useBusiness } from "@/context/BusinessContext";
 import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Eye, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type StudentRow = {
   id: string;
@@ -24,14 +25,11 @@ export default function StudentsPage() {
   const [data, setData] = useState<StudentRow[]>([]);
   const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
-  
-  // Query state
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
   const fetchData = useCallback(async (p: number, q: string) => {
     if (activeBusiness !== "vydhra") return;
-    
     setLoading(true);
     try {
       const query = new URLSearchParams({
@@ -39,23 +37,18 @@ export default function StudentsPage() {
         limit: "10",
         ...(q && { q }),
       });
-      
       const res = await apiClient.get<PaginatedResponse<StudentRow>>(`/vydhra/students?${query}`);
       setData(res.data);
       setMetadata(res.metadata);
-    } catch (err) {
-      console.error("Failed to fetch students:", err);
+    } catch {
+      toast.error("Failed to load students. Please try again.");
     } finally {
       setLoading(false);
     }
   }, [activeBusiness]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData(page, search);
-    }, 300); // Simple debounce
-    
-    return () => clearTimeout(timer);
+    fetchData(page, search);
   }, [page, search, fetchData]);
 
   const columns = [
@@ -64,21 +57,21 @@ export default function StudentsPage() {
     { header: "Email", accessor: "email" as const },
     { header: "Enrollments", accessor: (row: StudentRow) => row._count?.enrollments || 0 },
     { header: "Joined", accessor: (row: StudentRow) => new Date(row.createdAt).toLocaleDateString() },
-    { 
-      header: "Actions", 
+    {
+      header: "Actions",
       accessor: (row: StudentRow) => (
         <Link href={`/students/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-muted">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
-      )
+      ),
     },
   ];
 
   const handleSearch = (val: string) => {
     setSearch(val);
-    setPage(1); // Reset to first page on search
+    setPage(1);
   };
 
   return (
@@ -88,7 +81,7 @@ export default function StudentsPage() {
         description="Manage all enrolled students on the platform."
         action={
           <Link href="/students/new">
-            <Button className="flex items-center gap-2">
+            <Button size="sm" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Add Student
             </Button>
@@ -96,28 +89,24 @@ export default function StudentsPage() {
         }
       />
 
-      {activeBusiness === "vydhra" && (
-        <TableControls 
-          onSearch={handleSearch} 
-          searchValue={search}
-          placeholder="Search students..."
-        />
-      )}
-      
       {activeBusiness === "vydhra" ? (
-        loading ? (
-          <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading students...</div>
-        ) : (
+        <>
+          <TableControls
+            onSearch={handleSearch}
+            searchValue={search}
+            placeholder="Search students..."
+          />
           <DataTable
             data={data}
             columns={columns}
             keyExtractor={(row) => row.id}
             metadata={metadata}
             onPageChange={setPage}
+            loading={loading}
           />
-        )
+        </>
       ) : (
-        <div className="p-8 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20">
+        <div className="p-10 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20 text-sm">
           Switch to Vydhra to view Students.
         </div>
       )}

@@ -6,6 +6,7 @@ import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export default function NewAgentPage() {
   const router = useRouter();
@@ -32,9 +33,8 @@ export default function NewAgentPage() {
       setTimeout(() => {
         router.push("/agents");
       }, 1500);
-    } catch (err) {
-      console.error("Failed to create agent:", err);
-      alert("Failed to create agent. Check if the referral code is unique.");
+    } catch {
+      toast.error("Failed to create agent. Check if the referral code is unique.");
     } finally {
       setLoading(false);
     }

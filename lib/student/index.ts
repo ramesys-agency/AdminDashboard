@@ -99,11 +99,12 @@ export async function upsertStudent(data: {
   });
 }
 
-export async function createEnrollment(studentId: string, courseId: string) {
+export async function createEnrollment(studentId: string, courseId: string, batchId?: string | null) {
   return prisma.courseEnrollment.create({
     data: {
       studentId,
       courseId,
+      ...(batchId && { batchId }),
       status: "ACTIVE",
     },
   });

@@ -10,6 +10,7 @@ import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-clie
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye } from "lucide-react";
+import { toast } from "sonner";
 
 type EnquiryRow = {
   id: string;
@@ -22,12 +23,12 @@ type EnquiryRow = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-    RESOLVED: "default",
-    CONTACTED: "secondary",
-    NEW: "outline",
+  const variantMap: Record<string, "success" | "purple" | "info" | "outline"> = {
+    RESOLVED: "success",
+    CONTACTED: "purple",
+    NEW: "info",
   };
-  return <Badge variant={map[status] ?? "outline"}>{status}</Badge>;
+  return <Badge variant={variantMap[status] ?? "outline"}>{status}</Badge>;
 }
 
 export default function EnquiriesPage() {
@@ -35,8 +36,6 @@ export default function EnquiriesPage() {
   const [data, setData] = useState<EnquiryRow[]>([]);
   const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
-
-  // Query state
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -50,24 +49,20 @@ export default function EnquiriesPage() {
         ...(q && { q }),
         ...(status !== "all" && { status }),
       });
-      
       const endpoint = activeBusiness === "vydhra" ? "/vydhra/enquiries" : "/ramesys/enquiries";
       const res = await apiClient.get<PaginatedResponse<EnquiryRow>>(`${endpoint}?${query}`);
       setData(res.data);
       setMetadata(res.metadata);
-    } catch (err) {
-      console.error("Failed to fetch enquiries:", err);
+    } catch {
+      toast.error("Failed to load enquiries. Please try again.");
     } finally {
       setLoading(false);
     }
   }, [activeBusiness]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData(page, search, statusFilter);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [page, search, statusFilter, fetchData, activeBusiness]);
+    fetchData(page, search, statusFilter);
+  }, [page, search, statusFilter, fetchData]);
 
   const columns = [
     { header: "ID", accessor: "id" as const },
@@ -80,23 +75,16 @@ export default function EnquiriesPage() {
       header: "Actions",
       accessor: (row: EnquiryRow) => (
         <Link href={`/enquiries/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0 transition-all hover:bg-muted font-medium">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-muted">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
-      )
+      ),
     },
   ];
 
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    setPage(1);
-  };
-
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-    setPage(1);
-  };
+  const selectClass =
+    "h-9 px-3 rounded-lg border border-border/60 bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-all hover:bg-muted/50";
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
@@ -105,15 +93,15 @@ export default function EnquiriesPage() {
         description="View and manage all incoming business enquiries."
       />
 
-      <TableControls 
-        onSearch={handleSearch} 
+      <TableControls
+        onSearch={(val) => { setSearch(val); setPage(1); }}
         searchValue={search}
         placeholder="Search by name, email or message..."
       >
-        <select 
-          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+        <select
+          className={selectClass}
           value={statusFilter}
-          onChange={handleStatusChange}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
         >
           <option value="all">All Status</option>
           <option value="NEW">New</option>
@@ -122,17 +110,14 @@ export default function EnquiriesPage() {
         </select>
       </TableControls>
 
-      {loading ? (
-        <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">Loading enquiries...</div>
-      ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          keyExtractor={(row) => row.id}
-          metadata={metadata}
-          onPageChange={setPage}
-        />
-      )}
+      <DataTable
+        data={data}
+        columns={columns}
+        keyExtractor={(row) => row.id}
+        metadata={metadata}
+        onPageChange={setPage}
+        loading={loading}
+      />
     </div>
   );
 }

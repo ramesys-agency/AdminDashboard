@@ -6,6 +6,7 @@ import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export default function NewStudentPage() {
   const router = useRouter();
@@ -26,9 +27,8 @@ export default function NewStudentPage() {
       setTimeout(() => {
         router.push("/students");
       }, 1500);
-    } catch (err) {
-      console.error("Failed to create student:", err);
-      alert("Failed to create student. Please try again.");
+    } catch {
+      toast.error("Failed to create student. Please try again.");
     } finally {
       setLoading(false);
     }

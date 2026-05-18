@@ -6,14 +6,11 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import {
-  apiClient,
-  PaginatedResponse,
-  PaginationMetadata,
-} from "@/lib/api-client";
+import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type InvoiceRow = {
   id: string;
@@ -29,15 +26,12 @@ type InvoiceRow = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<
-    string,
-    "default" | "secondary" | "destructive" | "outline"
-  > = {
-    PAID: "default",
-    PENDING: "outline",
+  const variantMap: Record<string, "success" | "warning" | "destructive" | "outline"> = {
+    PAID: "success",
+    PENDING: "warning",
     CANCELLED: "destructive",
   };
-  return <Badge variant={map[status] ?? "outline"}>{status}</Badge>;
+  return <Badge variant={variantMap[status] ?? "outline"}>{status}</Badge>;
 }
 
 export default function InvoicesPage() {
@@ -45,38 +39,27 @@ export default function InvoicesPage() {
   const [data, setData] = useState<InvoiceRow[]>([]);
   const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
-
-  // Query state
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const fetchData = useCallback(
-    async (p: number, status: string) => {
-      setLoading(true);
-      try {
-        const query = new URLSearchParams({
-          page: p.toString(),
-          limit: "10",
-          ...(status !== "all" && { status }),
-        });
-
-        const endpoint =
-          activeBusiness === "vydhra"
-            ? "/vydhra/invoices"
-            : "/ramesys/invoices";
-        const res = await apiClient.get<PaginatedResponse<InvoiceRow>>(
-          `${endpoint}?${query}`,
-        );
-        setData(res.data);
-        setMetadata(res.metadata);
-      } catch (err) {
-        console.error("Failed to fetch invoices:", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activeBusiness],
-  );
+  const fetchData = useCallback(async (p: number, status: string) => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: p.toString(),
+        limit: "10",
+        ...(status !== "all" && { status }),
+      });
+      const endpoint = activeBusiness === "vydhra" ? "/vydhra/invoices" : "/ramesys/invoices";
+      const res = await apiClient.get<PaginatedResponse<InvoiceRow>>(`${endpoint}?${query}`);
+      setData(res.data);
+      setMetadata(res.metadata);
+    } catch {
+      toast.error("Failed to load invoices. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeBusiness]);
 
   useEffect(() => {
     fetchData(page, statusFilter);
@@ -84,14 +67,8 @@ export default function InvoicesPage() {
 
   const columns = [
     { header: "ID", accessor: "id" as const },
-    {
-      header: "Amount",
-      accessor: (row: InvoiceRow) => `$${row.amount.toLocaleString()}`,
-    },
-    {
-      header: "Status",
-      accessor: (row: InvoiceRow) => <StatusBadge status={row.status} />,
-    },
+    { header: "Amount", accessor: (row: InvoiceRow) => `$${row.amount.toLocaleString()}` },
+    { header: "Status", accessor: (row: InvoiceRow) => <StatusBadge status={row.status} /> },
     ...(activeBusiness === "vydhra"
       ? [
           {
@@ -101,8 +78,7 @@ export default function InvoicesPage() {
           },
           {
             header: "Student",
-            accessor: (row: InvoiceRow) =>
-              row.payments?.[0]?.student?.name || "N/A",
+            accessor: (row: InvoiceRow) => row.payments?.[0]?.student?.name || "N/A",
           },
         ]
       : [
@@ -120,11 +96,7 @@ export default function InvoicesPage() {
       header: "Actions",
       accessor: (row: InvoiceRow) => (
         <Link href={`/invoices/${row.id}`}>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 rounded-full hover:bg-slate-100"
-          >
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-muted">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
@@ -132,10 +104,8 @@ export default function InvoicesPage() {
     },
   ];
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-    setPage(1);
-  };
+  const selectClass =
+    "h-9 px-3 rounded-lg border border-border/60 bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-all hover:bg-muted/50";
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
@@ -143,22 +113,22 @@ export default function InvoicesPage() {
         title="Invoices"
         description="Manage and track all business invoices."
         action={
-          activeBusiness === "ramesys" && (
+          activeBusiness === "ramesys" ? (
             <Link href="/invoices/new">
-              <Button className="flex items-center gap-2">
+              <Button size="sm" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Generate Invoice
               </Button>
             </Link>
-          )
+          ) : undefined
         }
       />
 
       <TableControls onSearch={() => {}} searchValue="">
         <select
-          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+          className={selectClass}
           value={statusFilter}
-          onChange={handleStatusChange}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
         >
           <option value="all">All Status</option>
           <option value="PENDING">Pending</option>
@@ -167,19 +137,14 @@ export default function InvoicesPage() {
         </select>
       </TableControls>
 
-      {loading ? (
-        <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">
-          Loading invoices...
-        </div>
-      ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          keyExtractor={(row) => row.id}
-          metadata={metadata}
-          onPageChange={setPage}
-        />
-      )}
+      <DataTable
+        data={data}
+        columns={columns}
+        keyExtractor={(row) => row.id}
+        metadata={metadata}
+        onPageChange={setPage}
+        loading={loading}
+      />
     </div>
   );
 }

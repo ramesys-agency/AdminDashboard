@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 import { Button } from "@/components/ui/button";
 
@@ -50,7 +51,7 @@ export default function NewPaymentPage() {
         setProjects(projRes.data);
         setInvoices(invRes.data);
       } catch (err) {
-        console.error("Failed to fetch data for dropdowns:", err);
+        toast.error("Failed to load data for dropdowns.");
       }
     }
     fetchData();
@@ -127,7 +128,7 @@ export default function NewPaymentPage() {
               className="flex-1 h-12 gap-2 text-lg font-bold"
               onClick={() => {
                 navigator.clipboard.writeText(paymentLink);
-                alert("Link copied to clipboard!");
+                toast.success("Link copied to clipboard!");
               }}
             >
               Copy link

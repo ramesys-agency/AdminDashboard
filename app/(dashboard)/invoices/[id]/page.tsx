@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,7 @@ export default function InvoiceDetailPage() {
             .then(setInvoice);
         })
         .catch((err) => {
-          console.error("Failed to fetch invoice:", err);
+          toast.error("Failed to load invoice.");
         })
         .finally(() => setLoading(false));
     }
@@ -125,7 +126,7 @@ export default function InvoiceDetailPage() {
     : invoice.project?.name || "Service Charges";
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-12 print:max-w-none print:p-0 print:m-0">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10 print:max-w-none print:p-0 print:m-0">
       <div className="flex items-center justify-between print:hidden">
         <div className="flex items-center gap-4">
           <Link href="/invoices">

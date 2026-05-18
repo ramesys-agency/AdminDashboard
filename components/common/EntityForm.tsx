@@ -43,7 +43,7 @@ export function EntityForm({
   }
 
   return (
-    <div className="max-w-4xl mx-auto pb-20">
+    <div className="max-w-6xl mx-auto pb-10">
       {/* Fixed Back Button Position */}
       <div className="mb-6 flex items-center">
         <Link 

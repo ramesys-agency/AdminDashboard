@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 
 type Project = {
@@ -37,7 +38,7 @@ export default function NewInvoicePage() {
         );
         setProjects(res.data);
       } catch (err) {
-        console.error("Failed to fetch projects for dropdown:", err);
+        toast.error("Failed to load projects for dropdown.");
       }
     }
     fetchProjects();

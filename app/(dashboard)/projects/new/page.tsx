@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 
 type Client = {
@@ -40,7 +41,7 @@ export default function NewProjectPage() {
         );
         setClients(res.data);
       } catch (err) {
-        console.error("Failed to fetch clients for dropdown:", err);
+        toast.error("Failed to load clients for dropdown.");
       } finally {
         setFetchingClients(false);
       }

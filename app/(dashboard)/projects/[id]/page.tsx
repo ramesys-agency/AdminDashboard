@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -54,7 +55,7 @@ export default function ProjectDetailPage() {
       apiClient
         .get<ProjectDetail>(`/ramesys/projects/${id}`)
         .then(setProject)
-        .catch((err) => console.error("Failed to fetch project:", err))
+        .catch((err) => toast.error("Failed to load project."))
         .finally(() => setLoading(false));
     }
   }, [id]);
@@ -82,7 +83,7 @@ export default function ProjectDetailPage() {
   const invoicesTotal = project.invoices.reduce((s, i) => s + i.amount, 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <PageHeader
         title={project.name}
         description="Project detail view"

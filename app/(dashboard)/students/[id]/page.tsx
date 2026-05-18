@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,7 +66,7 @@ export default function StudentDetailPage() {
         .get<StudentDetail>(`/vydhra/students/${id}`)
         .then(setStudent)
         .catch((err) => {
-          console.error("Failed to fetch student:", err);
+          toast.error("Failed to load student.");
         })
         .finally(() => setLoading(false));
     }
@@ -91,7 +92,7 @@ export default function StudentDetailPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/students">

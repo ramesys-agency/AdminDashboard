@@ -81,7 +81,7 @@ export default function AgentDetailPage() {
       const data = await apiClient.get<AgentDetail>(`/vydhra/agents/${id}`);
       setAgent(data);
     } catch (err) {
-      console.error("Failed to fetch agent:", err);
+      toast.error("Failed to load agent.");
     } finally {
       setLoading(false);
     }
@@ -158,7 +158,7 @@ export default function AgentDetailPage() {
   const pendingAmount = totalEarned + bonusAmount - (agent.totalPaid || 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/agents">

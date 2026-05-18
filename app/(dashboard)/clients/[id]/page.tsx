@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/common/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -58,7 +59,7 @@ export default function ClientDetailPage() {
         .get<ClientDetail>(`/ramesys/clients/${id}`)
         .then(setClient)
         .catch((err) => {
-          console.error("Failed to fetch client:", err);
+          toast.error("Failed to load client.");
         })
         .finally(() => setLoading(false));
     }
@@ -92,7 +93,7 @@ export default function ClientDetailPage() {
     .reduce((sum, pay) => sum + pay.amount, 0);
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <PageHeader
         title={client.name}
         description="Client detail view"

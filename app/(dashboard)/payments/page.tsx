@@ -6,14 +6,11 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import {
-  apiClient,
-  PaginatedResponse,
-  PaginationMetadata,
-} from "@/lib/api-client";
+import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type PaymentRow = {
   id: string;
@@ -27,15 +24,12 @@ type PaymentRow = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const map: Record<
-    string,
-    "default" | "secondary" | "destructive" | "outline"
-  > = {
-    COMPLETED: "default",
-    PENDING: "outline",
+  const variantMap: Record<string, "success" | "warning" | "destructive" | "outline"> = {
+    COMPLETED: "success",
+    PENDING: "warning",
     FAILED: "destructive",
   };
-  return <Badge variant={map[status] ?? "outline"}>{status}</Badge>;
+  return <Badge variant={variantMap[status] ?? "outline"}>{status}</Badge>;
 }
 
 export default function PaymentsPage() {
@@ -43,40 +37,29 @@ export default function PaymentsPage() {
   const [data, setData] = useState<PaymentRow[]>([]);
   const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
-
-  // Query state
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("all");
   const [methodFilter, setMethodFilter] = useState("all");
 
-  const fetchData = useCallback(
-    async (p: number, status: string, method: string) => {
-      setLoading(true);
-      try {
-        const query = new URLSearchParams({
-          page: p.toString(),
-          limit: "10",
-          ...(status !== "all" && { status }),
-          ...(method !== "all" && { method }),
-        });
-
-        const endpoint =
-          activeBusiness === "vydhra"
-            ? "/vydhra/payments"
-            : "/ramesys/payments";
-        const res = await apiClient.get<PaginatedResponse<PaymentRow>>(
-          `${endpoint}?${query}`,
-        );
-        setData(res.data);
-        setMetadata(res.metadata);
-      } catch (err) {
-        console.error("Failed to fetch payments:", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activeBusiness],
-  );
+  const fetchData = useCallback(async (p: number, status: string, method: string) => {
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: p.toString(),
+        limit: "10",
+        ...(status !== "all" && { status }),
+        ...(method !== "all" && { method }),
+      });
+      const endpoint = activeBusiness === "vydhra" ? "/vydhra/payments" : "/ramesys/payments";
+      const res = await apiClient.get<PaginatedResponse<PaymentRow>>(`${endpoint}?${query}`);
+      setData(res.data);
+      setMetadata(res.metadata);
+    } catch {
+      toast.error("Failed to load payments. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeBusiness]);
 
   useEffect(() => {
     fetchData(page, statusFilter, methodFilter);
@@ -84,38 +67,18 @@ export default function PaymentsPage() {
 
   const columns = [
     { header: "ID", accessor: "id" as const },
-    {
-      header: "Amount",
-      accessor: (row: PaymentRow) => `$${row.amount.toLocaleString()}`,
-    },
-    {
-      header: "Status",
-      accessor: (row: PaymentRow) => <StatusBadge status={row.status} />,
-    },
+    { header: "Amount", accessor: (row: PaymentRow) => `$${row.amount.toLocaleString()}` },
+    { header: "Status", accessor: (row: PaymentRow) => <StatusBadge status={row.status} /> },
     { header: "Method", accessor: (row: PaymentRow) => row.method || "N/A" },
     ...(activeBusiness === "vydhra"
-      ? [
-          {
-            header: "Student",
-            accessor: (row: PaymentRow) => row.student?.name || "N/A",
-          },
-        ]
-      : [
-          {
-            header: "Project",
-            accessor: (row: PaymentRow) => row.project?.name || "N/A",
-          },
-        ]),
-    {
-      header: "Date",
-      accessor: (row: PaymentRow) =>
-        new Date(row.createdAt).toLocaleDateString(),
-    },
+      ? [{ header: "Student", accessor: (row: PaymentRow) => row.student?.name || "N/A" }]
+      : [{ header: "Project", accessor: (row: PaymentRow) => row.project?.name || "N/A" }]),
+    { header: "Date", accessor: (row: PaymentRow) => new Date(row.createdAt).toLocaleDateString() },
     {
       header: "Actions",
       accessor: (row: PaymentRow) => (
         <Link href={`/payments/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-muted">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
@@ -123,15 +86,8 @@ export default function PaymentsPage() {
     },
   ];
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-    setPage(1);
-  };
-
-  const handleMethodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setMethodFilter(e.target.value);
-    setPage(1);
-  };
+  const selectClass =
+    "h-9 px-3 rounded-lg border border-border/60 bg-background text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 transition-all hover:bg-muted/50";
 
   return (
     <div className="max-w-6xl mx-auto pb-10">
@@ -139,26 +95,22 @@ export default function PaymentsPage() {
         title="Payments"
         description="Monitor all financial transactions and payment statuses."
         action={
-          activeBusiness === "ramesys" && (
+          activeBusiness === "ramesys" ? (
             <Link href="/payments/new">
-              <Button className="flex items-center gap-2">
+              <Button size="sm" className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
                 Generate Payment Link
               </Button>
             </Link>
-          )
+          ) : undefined
         }
       />
 
-      <TableControls
-        onSearch={() => {}}
-        searchValue=""
-        placeholder="Filter payments..."
-      >
+      <TableControls onSearch={() => {}} searchValue="" placeholder="Filter payments...">
         <select
-          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+          className={selectClass}
           value={statusFilter}
-          onChange={handleStatusChange}
+          onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
         >
           <option value="all">All Status</option>
           <option value="PENDING">Pending</option>
@@ -166,9 +118,9 @@ export default function PaymentsPage() {
           <option value="FAILED">Failed</option>
         </select>
         <select
-          className="h-10 px-3 rounded-lg border border-input bg-background text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 transition-all hover:bg-muted/50"
+          className={selectClass}
           value={methodFilter}
-          onChange={handleMethodChange}
+          onChange={(e) => { setMethodFilter(e.target.value); setPage(1); }}
         >
           <option value="all">All Methods</option>
           <option value="CARD">Card</option>
@@ -178,19 +130,14 @@ export default function PaymentsPage() {
         </select>
       </TableControls>
 
-      {loading ? (
-        <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">
-          Loading payments...
-        </div>
-      ) : (
-        <DataTable
-          data={data}
-          columns={columns}
-          keyExtractor={(row) => row.id}
-          metadata={metadata}
-          onPageChange={setPage}
-        />
-      )}
+      <DataTable
+        data={data}
+        columns={columns}
+        keyExtractor={(row) => row.id}
+        metadata={metadata}
+        onPageChange={setPage}
+        loading={loading}
+      />
     </div>
   );
 }

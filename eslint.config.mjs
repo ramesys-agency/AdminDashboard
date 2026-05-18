@@ -13,4 +13,6 @@ const eslintConfig = [
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 ];
 
+eslintConfig[0].rules["@typescript-eslint/no-explicit-any"] = "off";
+
 export default eslintConfig;

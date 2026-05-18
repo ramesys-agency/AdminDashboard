@@ -120,19 +120,41 @@ model Course {
   updatedBy   String?
   business    Business           @relation(fields: [businessId], references: [id])
   enrollments CourseEnrollment[]
+  batches     CourseBatch[]
+}
+
+model CourseBatch {
+  id          String             @id @default(cuid())
+  courseId    String
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  maxSeats    Int?
+  price       Float?
+  priceINR    Float?
+  priceUSD    Float?
+  status      BatchStatus        @default(UPCOMING)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  course      Course             @relation(fields: [courseId], references: [id])
+  enrollments CourseEnrollment[]
 }
 
 model CourseEnrollment {
-  id        String    @id @default(cuid())
+  id        String       @id @default(cuid())
   studentId String
   courseId  String
+  batchId   String?
   status    String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
   createdBy String?
   updatedBy String?
-  course    Course    @relation(fields: [courseId], references: [id])
-  student   Student   @relation(fields: [studentId], references: [id])
+  batch     CourseBatch? @relation(fields: [batchId], references: [id])
+  course    Course       @relation(fields: [courseId], references: [id])
+  student   Student      @relation(fields: [studentId], references: [id])
   payments  Payment[]
 }
 
@@ -221,6 +243,13 @@ enum BusinessType {
   IT_SERVICES
   COURSE_SELLING
   OTHER
+}
+
+enum BatchStatus {
+  UPCOMING
+  ACTIVE
+  COMPLETED
+  CANCELLED
 }
 
 enum CommissionType {

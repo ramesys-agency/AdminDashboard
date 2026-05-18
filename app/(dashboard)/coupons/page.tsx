@@ -6,13 +6,10 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import {
-  apiClient,
-  PaginatedResponse,
-  PaginationMetadata,
-} from "@/lib/api-client";
+import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Eye, Plus } from "lucide-react";
+import { toast } from "sonner";
 
 type CouponRow = {
   id: string;
@@ -30,43 +27,30 @@ export default function CouponsPage() {
   const [data, setData] = useState<CouponRow[]>([]);
   const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
   const [loading, setLoading] = useState(true);
-
-  // Query state
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
 
-  const fetchData = useCallback(
-    async (p: number, q: string) => {
-      if (activeBusiness !== "vydhra") return;
-
-      setLoading(true);
-      try {
-        const query = new URLSearchParams({
-          page: p.toString(),
-          limit: "10",
-          ...(q && { q }),
-        });
-
-        const res = await apiClient.get<PaginatedResponse<CouponRow>>(
-          `/vydhra/coupons?${query}`,
-        );
-        setData(res.data);
-        setMetadata(res.metadata);
-      } catch (err) {
-        console.error("Failed to fetch coupons:", err);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [activeBusiness],
-  );
+  const fetchData = useCallback(async (p: number, q: string) => {
+    if (activeBusiness !== "vydhra") return;
+    setLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: p.toString(),
+        limit: "10",
+        ...(q && { q }),
+      });
+      const res = await apiClient.get<PaginatedResponse<CouponRow>>(`/vydhra/coupons?${query}`);
+      setData(res.data);
+      setMetadata(res.metadata);
+    } catch {
+      toast.error("Failed to load coupons. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [activeBusiness]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchData(page, search);
-    }, 300); // Simple debounce
-
-    return () => clearTimeout(timer);
+    fetchData(page, search);
   }, [page, search, fetchData]);
 
   const columns = [
@@ -81,19 +65,18 @@ export default function CouponsPage() {
     },
     {
       header: "Usage",
-      accessor: (row: CouponRow) =>
-        `${row.currentUses} / ${row.maxUses || "∞"}`,
+      accessor: (row: CouponRow) => `${row.currentUses} / ${row.maxUses || "∞"}`,
     },
     {
       header: "Valid Until",
       accessor: (row: CouponRow) =>
-        row.validUntil ? new Date(row.validUntil).toLocaleDateString() : "N/A",
+        row.validUntil ? new Date(row.validUntil).toLocaleDateString() : "No expiry",
     },
     {
       header: "Actions",
       accessor: (row: CouponRow) => (
         <Link href={`/coupons/${row.id}`}>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-lg hover:bg-muted">
             <Eye className="h-4 w-4" />
           </Button>
         </Link>
@@ -103,7 +86,7 @@ export default function CouponsPage() {
 
   const handleSearch = (val: string) => {
     setSearch(val);
-    setPage(1); // Reset to first page on search
+    setPage(1);
   };
 
   return (
@@ -113,7 +96,7 @@ export default function CouponsPage() {
         description="Manage promotional discount codes and tracking."
         action={
           <Link href="/coupons/new">
-            <Button className="flex items-center gap-2">
+            <Button size="sm" className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               New Coupon
             </Button>
@@ -121,30 +104,24 @@ export default function CouponsPage() {
         }
       />
 
-      {activeBusiness === "vydhra" && (
-        <TableControls
-          onSearch={handleSearch}
-          searchValue={search}
-          placeholder="Search codes..."
-        />
-      )}
-
       {activeBusiness === "vydhra" ? (
-        loading ? (
-          <div className="p-8 text-center text-muted-foreground animate-pulse border rounded-xl">
-            Loading coupons...
-          </div>
-        ) : (
+        <>
+          <TableControls
+            onSearch={handleSearch}
+            searchValue={search}
+            placeholder="Search codes..."
+          />
           <DataTable
             data={data}
             columns={columns}
             keyExtractor={(row) => row.id}
             metadata={metadata}
             onPageChange={setPage}
+            loading={loading}
           />
-        )
+        </>
       ) : (
-        <div className="p-8 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20">
+        <div className="p-10 text-center text-muted-foreground border rounded-xl border-dashed bg-muted/20 text-sm">
           Switch to Vydhra to view Coupons.
         </div>
       )}

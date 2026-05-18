@@ -6,6 +6,7 @@ import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 
 export default function NewCouponPage() {
   const router = useRouter();
@@ -33,9 +34,8 @@ export default function NewCouponPage() {
       setTimeout(() => {
         router.push("/coupons");
       }, 1500);
-    } catch (err) {
-      console.error("Failed to create coupon:", err);
-      alert("Failed to create coupon. Check if the code is unique.");
+    } catch {
+      toast.error("Failed to create coupon. Check if the code is unique.");
     } finally {
       setLoading(false);
     }

@@ -4,9 +4,12 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -27,7 +30,26 @@ import {
   Clock,
   BarChart3,
   TrendingUp,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Check,
 } from "lucide-react";
+
+type BatchStatus = "UPCOMING" | "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+type CourseBatch = {
+  id: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  maxSeats: number | null;
+  price: number | null;
+  priceUSD: number | null;
+  status: BatchStatus;
+  _count: { enrollments: number };
+};
 
 type CourseDetail = {
   id: string;
@@ -47,10 +69,34 @@ type CourseDetail = {
   };
 };
 
+const BATCH_STATUS_COLORS: Record<BatchStatus, string> = {
+  UPCOMING: "bg-blue-100 text-blue-700",
+  ACTIVE: "bg-emerald-100 text-emerald-700",
+  COMPLETED: "bg-slate-100 text-slate-700",
+  CANCELLED: "bg-red-100 text-red-700",
+};
+
+const emptyBatchForm = {
+  name: "",
+  startDate: "",
+  endDate: "",
+  maxSeats: "",
+  price: "",
+  status: "UPCOMING" as BatchStatus,
+};
+
 export default function CourseDetailPage() {
   const { id } = useParams();
   const [course, setCourse] = useState<CourseDetail | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Batch state
+  const [batches, setBatches] = useState<CourseBatch[]>([]);
+  const [batchesLoading, setBatchesLoading] = useState(false);
+  const [showBatchForm, setShowBatchForm] = useState(false);
+  const [batchForm, setBatchForm] = useState(emptyBatchForm);
+  const [batchFormLoading, setBatchFormLoading] = useState(false);
+  const [editingBatchId, setEditingBatchId] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -59,11 +105,80 @@ export default function CourseDetailPage() {
         .get<CourseDetail>(`/vydhra/courses/${id}`)
         .then(setCourse)
         .catch((err) => {
-          console.error("Failed to fetch course:", err);
+          toast.error("Failed to load course. Please try again.");
         })
         .finally(() => setLoading(false));
     }
   }, [id]);
+
+  const fetchBatches = () => {
+    if (!id) return;
+    setBatchesLoading(true);
+    apiClient
+      .get<CourseBatch[]>(`/vydhra/courses/${id}/batches`)
+      .then(setBatches)
+      .catch(() => toast.error("Failed to load batches."))
+      .finally(() => setBatchesLoading(false));
+  };
+
+  useEffect(() => {
+    fetchBatches();
+  }, [id]);
+
+  const handleBatchFormChange = (field: string, value: string) => {
+    setBatchForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleBatchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBatchFormLoading(true);
+    try {
+      const payload = {
+        name: batchForm.name,
+        startDate: batchForm.startDate,
+        endDate: batchForm.endDate,
+        maxSeats: batchForm.maxSeats ? parseInt(batchForm.maxSeats) : null,
+        price: batchForm.price ? parseFloat(batchForm.price) : null,
+        status: batchForm.status,
+      };
+      if (editingBatchId) {
+        await apiClient.put(`/vydhra/courses/${id}/batches/${editingBatchId}`, payload);
+      } else {
+        await apiClient.post(`/vydhra/courses/${id}/batches`, payload);
+      }
+      setBatchForm(emptyBatchForm);
+      setShowBatchForm(false);
+      setEditingBatchId(null);
+      fetchBatches();
+    } catch (err) {
+      toast.error("Failed to save batch. Please try again.");
+    } finally {
+      setBatchFormLoading(false);
+    }
+  };
+
+  const handleEditBatch = (batch: CourseBatch) => {
+    setEditingBatchId(batch.id);
+    setBatchForm({
+      name: batch.name,
+      startDate: batch.startDate.slice(0, 10),
+      endDate: batch.endDate.slice(0, 10),
+      maxSeats: batch.maxSeats?.toString() ?? "",
+      price: batch.price?.toString() ?? "",
+      status: batch.status,
+    });
+    setShowBatchForm(true);
+  };
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (!confirm("Delete this batch? This cannot be undone.")) return;
+    try {
+      await apiClient.delete(`/vydhra/courses/${id}/batches/${batchId}`);
+      fetchBatches();
+    } catch (err) {
+      toast.error("Failed to delete batch.");
+    }
+  };
 
   if (loading) {
     return (
@@ -85,7 +200,7 @@ export default function CourseDetailPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6 pb-12">
+    <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Link href="/courses">
@@ -95,6 +210,12 @@ export default function CourseDetailPage() {
           </Link>
           <h1 className="text-2xl font-bold tracking-tight">Course Insights</h1>
         </div>
+        <Link href={`/courses/${id}/edit`}>
+          <Button size="sm" variant="outline" className="gap-2">
+            <Pencil className="h-4 w-4" />
+            Edit Course
+          </Button>
+        </Link>
       </div>
 
       {/* Course Profile Header */}
@@ -212,13 +333,20 @@ export default function CourseDetailPage() {
 
       {/* Detailed Content Tabs */}
       <Tabs defaultValue="students" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px] mb-6 shadow-sm border bg-slate-50/50 p-1">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[560px] mb-6 shadow-sm border bg-slate-50/50 p-1">
           <TabsTrigger
             value="students"
             className="data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
           >
             <Users className="h-4 w-4" />
             Student Roster
+          </TabsTrigger>
+          <TabsTrigger
+            value="batches"
+            className="data-[state=active]:bg-white data-[state=active]:shadow-sm flex items-center gap-2"
+          >
+            <Calendar className="h-4 w-4" />
+            Batches
           </TabsTrigger>
           <TabsTrigger
             value="revenue"
@@ -302,6 +430,124 @@ export default function CourseDetailPage() {
                 )}
               </TableBody>
             </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="batches" className="mt-0">
+          <Card className="border-none shadow-sm overflow-hidden p-6 space-y-6">
+            {/* Create/Edit form */}
+            {showBatchForm ? (
+              <form onSubmit={handleBatchSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-bold text-slate-800">{editingBatchId ? "Edit Batch" : "New Batch"}</h3>
+                  <button type="button" onClick={() => { setShowBatchForm(false); setEditingBatchId(null); setBatchForm(emptyBatchForm); }} className="text-slate-400 hover:text-slate-600">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="md:col-span-2 space-y-1">
+                    <Label className="text-xs font-semibold">Batch Name *</Label>
+                    <Input placeholder="e.g. Batch 1 – June 2025" required value={batchForm.name} onChange={(e) => handleBatchFormChange("name", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Start Date *</Label>
+                    <Input type="date" required value={batchForm.startDate} onChange={(e) => handleBatchFormChange("startDate", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">End Date *</Label>
+                    <Input type="date" required value={batchForm.endDate} onChange={(e) => handleBatchFormChange("endDate", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Max Seats (optional)</Label>
+                    <Input type="number" min="1" placeholder="Leave blank for unlimited" value={batchForm.maxSeats} onChange={(e) => handleBatchFormChange("maxSeats", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Price Override in USD (optional)</Label>
+                    <Input type="number" min="0" step="0.01" placeholder="Leave blank to use course price" value={batchForm.price} onChange={(e) => handleBatchFormChange("price", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Status</Label>
+                    <select
+                      value={batchForm.status}
+                      onChange={(e) => handleBatchFormChange("status", e.target.value)}
+                      className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    >
+                      <option value="UPCOMING">Upcoming</option>
+                      <option value="ACTIVE">Active</option>
+                      <option value="COMPLETED">Completed</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-3 pt-2">
+                  <Button type="submit" disabled={batchFormLoading} size="sm" className="flex items-center gap-2">
+                    {batchFormLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    {editingBatchId ? "Save Changes" : "Create Batch"}
+                  </Button>
+                  <Button type="button" variant="ghost" size="sm" onClick={() => { setShowBatchForm(false); setEditingBatchId(null); setBatchForm(emptyBatchForm); }}>Cancel</Button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex justify-between items-center">
+                <p className="text-sm text-muted-foreground">{batches.length} batch{batches.length !== 1 ? "es" : ""} total</p>
+                <Button size="sm" className="flex items-center gap-2" onClick={() => setShowBatchForm(true)}>
+                  <Plus className="h-4 w-4" /> Add Batch
+                </Button>
+              </div>
+            )}
+
+            {/* Batches table */}
+            {batchesLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : batches.length === 0 ? (
+              <div className="text-center py-16 text-muted-foreground border border-dashed rounded-xl">
+                No batches yet. Create the first batch for this course.
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-slate-50/30 hover:bg-slate-50/30">
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Batch Name</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Status</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Start</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">End</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Seats</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Price</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {batches.map((b) => (
+                    <TableRow key={b.id} className="hover:bg-slate-50/50 border-b">
+                      <TableCell className="px-4 py-4 font-semibold text-slate-900">{b.name}</TableCell>
+                      <TableCell className="px-4 py-4">
+                        <span className={`text-[11px] font-bold uppercase px-2 py-1 rounded-full ${BATCH_STATUS_COLORS[b.status]}`}>{b.status}</span>
+                      </TableCell>
+                      <TableCell className="px-4 py-4 text-slate-600">{new Date(b.startDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="px-4 py-4 text-slate-600">{new Date(b.endDate).toLocaleDateString()}</TableCell>
+                      <TableCell className="px-4 py-4 text-slate-600">
+                        {b.maxSeats ? `${b._count.enrollments}/${b.maxSeats}` : `${b._count.enrollments} enrolled`}
+                      </TableCell>
+                      <TableCell className="px-4 py-4 text-slate-600">
+                        {b.price ? `$${b.price}` : b.priceUSD ? `$${b.priceUSD}` : <span className="text-slate-400 text-xs">Course price</span>}
+                      </TableCell>
+                      <TableCell className="px-4 py-4 text-right">
+                        <div className="flex items-center gap-1 justify-end">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-100" onClick={() => handleEditBatch(b)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-red-50 hover:text-red-600" onClick={() => handleDeleteBatch(b.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </Card>
         </TabsContent>
 

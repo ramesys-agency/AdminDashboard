@@ -46,11 +46,11 @@ function createPrismaClient() {
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>
 
-const globalForPrisma = global as unknown as { prisma: ExtendedPrismaClient }
+const PRISMA_CACHE_KEY = 'prisma_v2' // increment when schema changes to bust HMR cache
+const globalForPrisma = global as unknown as { [key: string]: ExtendedPrismaClient }
 
-const prisma = globalForPrisma.prisma ?? createPrismaClient()
+const prisma = globalForPrisma[PRISMA_CACHE_KEY] ?? createPrismaClient()
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+if (process.env.NODE_ENV !== 'production') globalForPrisma[PRISMA_CACHE_KEY] = prisma
 
 export default prisma
-// Trivial change to force reload

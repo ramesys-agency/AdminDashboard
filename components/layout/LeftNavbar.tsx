@@ -1,8 +1,7 @@
 "use client";
 
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import React, { useTransition, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useBusiness } from "@/context/BusinessContext";
 import {
   LayoutDashboard,
@@ -14,6 +13,7 @@ import {
   MessageSquare,
   Briefcase,
   UserCircle,
+  Loader2,
 } from "lucide-react";
 
 const vydhraLinks = [
@@ -39,39 +39,84 @@ const ramesysLinks = [
 export function LeftNavbar() {
   const { activeBusiness } = useBusiness();
   const pathname = usePathname();
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isPending) {
+      setPendingHref(null);
+    }
+  }, [isPending]);
+
+  const handleNavigation = (href: string) => {
+    const alreadyActive =
+      href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+    if (alreadyActive && !isPending) return;
+    setPendingHref(href);
+    startTransition(() => {
+      router.push(href);
+    });
+  };
 
   const links = activeBusiness === "vydhra" ? vydhraLinks : ramesysLinks;
 
   return (
-    <aside className="w-64 border-r border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 h-[calc(100vh-4rem)] flex flex-col sticky top-16">
-      <div className="p-6">
-        <div className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-4">
-          Menu
-        </div>
-        <nav className="space-y-1">
+    <aside className="w-60 bg-white dark:bg-gray-950 border-r border-border h-[calc(100vh-3.5rem)] flex flex-col sticky top-14 shrink-0">
+      <div className="px-3 py-5 flex-1 overflow-y-auto">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50 px-3 mb-2">
+          Navigation
+        </p>
+        <nav className="space-y-0.5">
           {links.map((link) => {
             const Icon = link.icon;
-            const isActive = pathname.startsWith(link.href);
+            const isActive =
+              link.href === "/dashboard"
+                ? pathname === link.href
+                : pathname.startsWith(link.href);
+            const isLoading = pendingHref === link.href && isPending;
+
             return (
-              <Link
+              <button
                 key={link.name}
-                href={link.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                onClick={() => handleNavigation(link.href)}
+                className={`group w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left ${
                   isActive
-                    ? activeBusiness === "vydhra"
-                      ? "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
-                      : "bg-purple-50 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
-                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800/50 dark:hover:text-gray-200"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-foreground/60 hover:bg-muted hover:text-foreground"
                 }`}
               >
-                <Icon
-                  className={`w-5 h-5 ${isActive ? "" : "text-gray-400 dark:text-gray-500"}`}
-                />
+                {isLoading ? (
+                  <Loader2
+                    className={`w-4 h-4 shrink-0 animate-spin ${
+                      isActive ? "text-primary-foreground" : "text-muted-foreground"
+                    }`}
+                  />
+                ) : (
+                  <Icon
+                    className={`w-4 h-4 shrink-0 transition-colors ${
+                      isActive
+                        ? "text-primary-foreground"
+                        : "text-muted-foreground group-hover:text-foreground"
+                    }`}
+                  />
+                )}
                 {link.name}
-              </Link>
+              </button>
             );
           })}
         </nav>
+      </div>
+
+      <div className="px-4 py-4 border-t border-border">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-primary" />
+          </div>
+          <span className="text-xs text-muted-foreground capitalize font-medium">
+            {activeBusiness}
+          </span>
+        </div>
       </div>
     </aside>
   );
