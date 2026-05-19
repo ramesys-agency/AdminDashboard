@@ -11,16 +11,32 @@ import { Button } from "@/components/ui/button";
 import { Eye, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+type CouponDiscount = {
+  currency: string;
+  discountType: "PERCENTAGE" | "FLAT";
+  discountValue: number;
+};
+
 type CouponRow = {
   id: string;
   code: string;
-  discountType: "PERCENTAGE" | "FLAT";
-  discountValue: number;
+  discounts: CouponDiscount[];
   currentUses: number;
   maxUses: number | null;
   validUntil: string | null;
   createdAt: string;
 };
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$", INR: "₹", EUR: "€", GBP: "£", AED: "د.إ",
+};
+
+function formatDiscount(d: CouponDiscount): string {
+  const sym = CURRENCY_SYMBOLS[d.currency] ?? d.currency;
+  return d.discountType === "PERCENTAGE"
+    ? `${d.currency}: ${d.discountValue}%`
+    : `${d.currency}: ${sym}${d.discountValue}`;
+}
 
 export default function CouponsPage() {
   const { activeBusiness } = useBusiness();
@@ -57,11 +73,11 @@ export default function CouponsPage() {
     { header: "ID", accessor: "id" as const },
     { header: "Coupon Code", accessor: "code" as const },
     {
-      header: "Discount",
+      header: "Discounts",
       accessor: (row: CouponRow) =>
-        row.discountType === "PERCENTAGE"
-          ? `${row.discountValue}%`
-          : `$${row.discountValue.toLocaleString()}`,
+        row.discounts?.length
+          ? row.discounts.map(formatDiscount).join(" | ")
+          : "—",
     },
     {
       header: "Usage",

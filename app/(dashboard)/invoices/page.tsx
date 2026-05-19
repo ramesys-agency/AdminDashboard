@@ -12,6 +12,12 @@ import { Badge } from "@/components/ui/badge";
 import { Eye, Plus } from "lucide-react";
 import { toast } from "sonner";
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", INR: "₹", EUR: "€", GBP: "£", AED: "د.إ" };
+function formatAmount(amount: number, currency?: string | null) {
+  const sym = CURRENCY_SYMBOLS[(currency ?? "USD").toUpperCase()] ?? currency ?? "$";
+  return `${sym}${amount.toLocaleString()}`;
+}
+
 type InvoiceRow = {
   id: string;
   amount: number;
@@ -19,8 +25,9 @@ type InvoiceRow = {
   dueDate: string | null;
   project?: { id: string; name: string } | null;
   payments?: Array<{
+    currency?: string | null;
     student: { name: string };
-    courseEnrollment: { course: { name: string } };
+    courseEnrollment?: { course: { name: string } } | null;
   }>;
   createdAt: string;
 };
@@ -67,7 +74,7 @@ export default function InvoicesPage() {
 
   const columns = [
     { header: "ID", accessor: "id" as const },
-    { header: "Amount", accessor: (row: InvoiceRow) => `$${row.amount.toLocaleString()}` },
+    { header: "Amount", accessor: (row: InvoiceRow) => formatAmount(row.amount, row.payments?.[0]?.currency) },
     { header: "Status", accessor: (row: InvoiceRow) => <StatusBadge status={row.status} /> },
     ...(activeBusiness === "vydhra"
       ? [

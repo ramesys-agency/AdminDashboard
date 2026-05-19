@@ -40,6 +40,7 @@ export async function getInvoices({
         payments: {
           take: 1,
           select: {
+            currency: true,
             student: { select: { name: true } },
             courseEnrollment: {
               select: {

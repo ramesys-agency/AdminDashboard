@@ -62,6 +62,12 @@ export async function getPaymentById(id: string) {
       agent: true,
       coupon: true,
       invoice: true,
+      courseEnrollment: {
+        include: {
+          course: { select: { id: true, name: true, slug: true } },
+          batch: { select: { id: true, name: true, startDate: true, endDate: true } },
+        },
+      },
     },
   });
 }
@@ -107,21 +113,37 @@ export async function createPayment(data: {
 
   if (!vydhra) throw new Error("Vydhra business not found");
 
-  // Create payment record
-  return prisma.payment.create({
-    data: {
-      businessId: vydhra.id,
-      amount: Number(data.amount),
-      currency: "USD",
-      status: data.status,
-      method: data.method || "RAZORPAY",
-      studentId: data.studentId,
-      courseEnrollmentId: data.courseEnrollmentId || null,
-      couponId: data.couponId || null,
-      agentId: data.agentId || null,
-      razorpayOrderId: data.razorpayOrderId || null,
-      razorpayPaymentId: data.razorpayPaymentId || null,
-      razorpaySignature: data.razorpaySignature || null,
-    }
+  const amount = Number(data.amount);
+  const currency = (data.currency ?? "USD").toUpperCase();
+
+  return prisma.$transaction(async (tx) => {
+    // Create invoice first
+    const invoice = await tx.invoice.create({
+      data: {
+        businessId: vydhra.id,
+        amount,
+        status: data.status === "COMPLETED" ? "PAID" : "PENDING",
+        dueDate: new Date(),
+      },
+    });
+
+    // Create payment linked to the invoice
+    return tx.payment.create({
+      data: {
+        businessId: vydhra.id,
+        invoiceId: invoice.id,
+        amount,
+        currency,
+        status: data.status,
+        method: data.method || "RAZORPAY",
+        studentId: data.studentId,
+        courseEnrollmentId: data.courseEnrollmentId || null,
+        couponId: data.couponId || null,
+        agentId: data.agentId || null,
+        razorpayOrderId: data.razorpayOrderId || null,
+        razorpayPaymentId: data.razorpayPaymentId || null,
+        razorpaySignature: data.razorpaySignature || null,
+      },
+    });
   });
 }

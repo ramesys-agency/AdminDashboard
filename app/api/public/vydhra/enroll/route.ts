@@ -18,7 +18,8 @@ export async function POST(req: Request) {
       country,
       courseSlug,
       courseName,
-      amount, // in USD (number)
+      amount,
+      currency = "USD",
       couponCode,
       batchId,
     } = body;
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
     }
 
     // --- Resolve coupon if provided ---
-    let coupon: { id: string; discountType: string; discountValue: number } | null = null;
+    let coupon: { id: string } | null = null;
     if (couponCode) {
       coupon = await prisma.coupon.findFirst({
         where: {
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
             { validUntil: { gte: new Date() } },
           ],
         },
-        select: { id: true, discountType: true, discountValue: true },
+        select: { id: true },
       });
     }
 
@@ -108,7 +109,7 @@ export async function POST(req: Request) {
 
     const order = await razorpay.orders.create({
       amount: amountInPaise,
-      currency: "USD",
+      currency: currency.toUpperCase(),
       receipt,
       notes: {
         studentId: student.id,

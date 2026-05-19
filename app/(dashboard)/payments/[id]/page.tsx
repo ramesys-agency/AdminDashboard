@@ -30,13 +30,17 @@ import {
 type PaymentDetail = {
   id: string;
   amount: number;
+  currency?: string | null;
   status: string;
   method: string | null;
   transactionId: string | null;
   createdAt: string;
   student?: { id: string; name: string; email: string } | null;
   agent?: { id: string; name: string; code: string } | null;
-  course?: { id: string; name: string } | null;
+  courseEnrollment?: {
+    course: { id: string; name: string; slug: string } | null;
+    batch: { id: string; name: string; startDate: string; endDate: string } | null;
+  } | null;
   invoice?: { id: string; amount: number; status: string } | null;
   project?: { id: string; name: string } | null;
 };
@@ -125,7 +129,7 @@ export default function PaymentDetailPage() {
                 </span>
               </div>
               <h2 className="text-5xl font-black tracking-tighter">
-                ${payment.amount.toLocaleString()}
+                {({ USD: "$", INR: "₹", EUR: "€", GBP: "£" } as Record<string, string>)[(payment.currency ?? "USD").toUpperCase()] ?? payment.currency ?? "$"}{payment.amount.toLocaleString()}
               </h2>
               <div className="flex items-center gap-2 text-white/70">
                 <Calendar className="h-4 w-4" />
@@ -249,20 +253,36 @@ export default function PaymentDetailPage() {
           <LinkIcon className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-          {payment.course && (
+          {payment.courseEnrollment?.course && (
             <div className="flex flex-col gap-2 p-4 rounded-xl border bg-slate-50/30 group hover:border-blue-200 hover:bg-blue-50/20 transition-all">
               <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
                 Purchased Course
               </p>
               <p className="font-bold text-slate-800 truncate">
-                {payment.course.name}
+                {payment.courseEnrollment.course.name}
               </p>
               <Link
-                href={`/courses/${payment.course.id}`}
+                href={`/courses/${payment.courseEnrollment.course.id}`}
                 className="inline-flex items-center text-[10px] font-bold text-blue-600 mt-2"
               >
                 VIEW COURSE <ArrowUpRight className="h-3 w-3 ml-1" />
               </Link>
+            </div>
+          )}
+
+          {payment.courseEnrollment?.batch && (
+            <div className="flex flex-col gap-2 p-4 rounded-xl border bg-slate-50/30 group hover:border-orange-200 hover:bg-orange-50/20 transition-all">
+              <p className="text-[10px] font-black uppercase tracking-tighter text-muted-foreground">
+                Enrolled Batch
+              </p>
+              <p className="font-bold text-slate-800 truncate">
+                {payment.courseEnrollment.batch.name}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                {new Date(payment.courseEnrollment.batch.startDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                {" – "}
+                {new Date(payment.courseEnrollment.batch.endDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+              </p>
             </div>
           )}
 

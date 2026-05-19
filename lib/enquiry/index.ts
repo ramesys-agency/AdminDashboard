@@ -50,3 +50,28 @@ export async function getEnquiryById(id: string) {
     where: { id },
   });
 }
+
+export async function createEnquiry(data: {
+  name: string;
+  email: string;
+  phone?: string;
+  message?: string;
+}) {
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
+
+  if (!vydhra) throw new Error("Vydhra business not found");
+
+  return prisma.enquiry.create({
+    data: {
+      businessId: vydhra.id,
+      name: data.name,
+      email: data.email,
+      phone: data.phone ?? null,
+      message: data.message ?? null,
+      status: "NEW",
+    },
+  });
+}

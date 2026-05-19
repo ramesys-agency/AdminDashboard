@@ -91,9 +91,6 @@ async function main() {
       update: {
         name: course.title,
         description: course.description,
-        price: course.price,
-        priceINR: (course as any).priceINR,
-        priceUSD: (course as any).priceUSD,
         details: course as any,
       },
       create: {
@@ -101,10 +98,15 @@ async function main() {
         slug: course.slug,
         name: course.title,
         description: course.description,
-        price: course.price,
-        priceINR: (course as any).priceINR,
-        priceUSD: (course as any).priceUSD,
         details: course as any,
+        pricing: {
+          createMany: {
+            data: [
+              { currency: "USD", amount: (course as any).priceUSD ?? (course as any).price ?? 0 },
+              ...(((course as any).priceINR) ? [{ currency: "INR", amount: (course as any).priceINR }] : []),
+            ],
+          },
+        },
       },
     });
     courses.push(createdCourse);
@@ -114,12 +116,9 @@ async function main() {
       data: {
         courseId: createdCourse.id,
         name: "Cohort 1 (Launch Batch)",
-        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // starts in 7 days
-        endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000), // approx 2 months duration
+        startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000),
         maxSeats: 50,
-        price: course.price,
-        priceINR: (course as any).priceINR,
-        priceUSD: (course as any).priceUSD,
         status: BatchStatus.UPCOMING,
       },
     });
@@ -218,9 +217,15 @@ async function main() {
     data: {
       businessId: vydhra.id,
       code: "RAVI10",
-      discountType: DiscountType.PERCENTAGE,
-      discountValue: 10,
       maxUses: 100,
+      discounts: {
+        createMany: {
+          data: [
+            { currency: "USD", discountType: DiscountType.PERCENTAGE, discountValue: 10 },
+            { currency: "INR", discountType: DiscountType.PERCENTAGE, discountValue: 10 },
+          ],
+        },
+      },
     },
   });
 
@@ -244,9 +249,15 @@ async function main() {
     data: {
       businessId: vydhra.id,
       code: "SANYA5",
-      discountType: DiscountType.FLAT,
-      discountValue: 1000, // Flat $1000
       maxUses: 50,
+      discounts: {
+        createMany: {
+          data: [
+            { currency: "USD", discountType: DiscountType.FLAT, discountValue: 1000 },
+            { currency: "INR", discountType: DiscountType.FLAT, discountValue: 5000 },
+          ],
+        },
+      },
     },
   });
 

@@ -11,7 +11,7 @@ export const GET = withAuth(async (req, { params }) => {
 export const POST = withAuth(async (req, { params }) => {
   const { id } = await params;
   const body = await req.json();
-  const { name, startDate, endDate, maxSeats, price, priceINR, priceUSD, status } = body;
+  const { name, startDate, endDate, maxSeats, pricing = [], status, whatsappGroupUrl } = body;
 
   if (!name || !startDate || !endDate) {
     return NextResponse.json(
@@ -26,10 +26,9 @@ export const POST = withAuth(async (req, { params }) => {
     startDate: new Date(startDate),
     endDate: new Date(endDate),
     maxSeats: maxSeats ?? null,
-    price: price ?? null,
-    priceINR: priceINR ?? null,
-    priceUSD: priceUSD ?? null,
+    pricing,
     status,
+    whatsappGroupUrl: whatsappGroupUrl || null,
   });
 
   return NextResponse.json(batch, { status: 201 });

@@ -1,5 +1,4 @@
 import prisma from "@/lib/prisma";
-import { Prisma } from "@prisma/client";
 
 export type GetCoursesParams = {
   page?: number;
@@ -7,52 +6,50 @@ export type GetCoursesParams = {
   search?: string;
 };
 
-type RawCourse = {
-  id: string;
-  name: string;
-  description: string | null;
-  slug: string;
-  price: number;
-  currency: string;
-  businessId: string;
-  createdAt: Date;
-  updatedAt: Date;
-  enrollment_count?: number;
-};
+type PricingRow = { currency: string; amount: number };
 
-export async function getCourses({
-  page = 1,
-  limit = 10,
-  search,
-}: GetCoursesParams = {}) {
+function pricingToMap(rows: PricingRow[]): Record<string, number> {
+  return Object.fromEntries(rows.map((r) => [r.currency, r.amount]));
+}
+
+export async function getCourses({ page = 1, limit = 10, search }: GetCoursesParams = {}) {
   const skip = (page - 1) * limit;
 
-  // Since Prisma client is stale and missing slug/details, we use queryRaw
-  const courses = (await prisma.$queryRaw`
-    SELECT c.*, 
-    (SELECT COUNT(*)::int FROM "CourseEnrollment" ce WHERE ce."courseId" = c.id) as enrollment_count
-    FROM "Course" c
-    JOIN "Business" b ON c."businessId" = b.id
-    WHERE b.type = 'COURSE_SELLING'
-    ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
-    ORDER BY c."createdAt" DESC
-    LIMIT ${limit} OFFSET ${skip}
-  `) as RawCourse[];
+  const vydhra = await prisma.business.findFirst({
+    where: { type: "COURSE_SELLING" },
+    select: { id: true },
+  });
 
-  const totalResult = (await prisma.$queryRaw`
-    SELECT COUNT(*)::int as count 
-    FROM "Course" c
-    JOIN "Business" b ON c."businessId" = b.id
-    WHERE b.type = 'COURSE_SELLING'
-    ${search ? Prisma.sql`AND (c.name ILIKE ${`%${search}%`} OR c.description ILIKE ${`%${search}%`})` : Prisma.sql``}
-  `) as { count: number }[];
+  const businessId = vydhra?.id;
 
-  const total = totalResult[0]?.count || 0;
+  const where = {
+    ...(businessId && { businessId }),
+    ...(search && {
+      OR: [
+        { name: { contains: search, mode: "insensitive" as const } },
+        { description: { contains: search, mode: "insensitive" as const } },
+      ],
+    }),
+  };
+
+  const [total, courses] = await Promise.all([
+    prisma.course.count({ where }),
+    prisma.course.findMany({
+      where,
+      include: {
+        pricing: true,
+        _count: { select: { enrollments: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      skip,
+      take: limit,
+    }),
+  ]);
 
   return {
     data: courses.map((c) => ({
       ...c,
-      _count: { enrollments: c.enrollment_count },
+      pricing: pricingToMap(c.pricing),
     })),
     metadata: {
       total,
@@ -64,29 +61,32 @@ export async function getCourses({
 }
 
 export async function getCourseBySlug(slug: string) {
-  const result =
-    await prisma.$queryRaw`SELECT * FROM "Course" WHERE slug ILIKE ${slug} LIMIT 1`;
-  const courses = result as RawCourse[];
-  const course = courses.length > 0 ? courses[0] : null;
+  const course = await prisma.course.findFirst({
+    where: { slug: { equals: slug, mode: "insensitive" } },
+    include: { pricing: true },
+  });
+
   if (!course) return null;
 
   const batches = await prisma.courseBatch.findMany({
     where: { courseId: course.id, status: { in: ["ACTIVE", "UPCOMING"] } },
-    include: { _count: { select: { enrollments: true } } },
+    include: {
+      pricing: true,
+      _count: { select: { enrollments: true } },
+    },
     orderBy: { startDate: "asc" },
   });
 
   return {
     ...course,
+    pricing: pricingToMap(course.pricing),
     batches: batches.map((b) => ({
       id: b.id,
       name: b.name,
       startDate: b.startDate.toISOString(),
       endDate: b.endDate.toISOString(),
       maxSeats: b.maxSeats,
-      price: b.price,
-      priceINR: b.priceINR,
-      priceUSD: b.priceUSD,
+      pricing: pricingToMap(b.pricing),
       status: b.status,
       enrollmentCount: b._count.enrollments,
     })),
@@ -94,22 +94,19 @@ export async function getCourseBySlug(slug: string) {
 }
 
 export async function getCourseById(id: string) {
-  const result =
-    await prisma.$queryRaw`SELECT * FROM "Course" WHERE id = ${id} LIMIT 1`;
-  const courses = result as RawCourse[];
-  const course = courses.length > 0 ? courses[0] : null;
+  const course = await prisma.course.findUnique({
+    where: { id },
+    include: { pricing: true },
+  });
 
   if (!course) return null;
 
-  // Include enrollments (still using standard Prisma for now as it doesn't use the new fields)
   const enrollments = await prisma.courseEnrollment.findMany({
     where: { courseId: id },
     include: { student: true },
     orderBy: { createdAt: "desc" },
   });
 
-  // Calculate total revenue for this course
-  // Note: Since Payments aren't directly linked to Course, we use courseEnrollmentId in Payment if available
   const payments = await prisma.payment.findMany({
     where: {
       courseEnrollmentId: { in: enrollments.map((e) => e.id) },
@@ -122,11 +119,9 @@ export async function getCourseById(id: string) {
 
   return {
     ...course,
+    pricing: pricingToMap(course.pricing),
     enrollments,
-    stats: {
-      totalEnrollments: enrollments.length,
-      totalRevenue,
-    },
+    stats: { totalEnrollments: enrollments.length, totalRevenue },
   };
 }
 
@@ -135,31 +130,30 @@ export async function updateCourse(
   data: {
     name: string;
     description?: string | null;
-    price: number;
-    priceINR?: number | null;
-    priceUSD?: number | null;
+    pricing: { currency: string; amount: number }[];
     details?: Record<string, unknown> | null;
   }
 ) {
+  await prisma.coursePricing.deleteMany({ where: { courseId: id } });
+
   return prisma.course.update({
     where: { id },
     data: {
       name: data.name,
       description: data.description,
-      price: data.price,
-      priceINR: data.priceINR ?? null,
-      priceUSD: data.priceUSD ?? null,
       details: data.details ?? undefined,
+      pricing: {
+        createMany: { data: data.pricing.map((p) => ({ currency: p.currency, amount: p.amount })) },
+      },
     },
+    include: { pricing: true },
   });
 }
 
 export async function createCourse(data: {
   name: string;
   description?: string | null;
-  price: number;
-  priceINR?: number | null;
-  priceUSD?: number | null;
+  pricing: { currency: string; amount: number }[];
   details?: Record<string, unknown> | null;
 }) {
   const vydhra = await prisma.business.findFirst({
@@ -174,22 +168,20 @@ export async function createCourse(data: {
     .replace(/\s+/g, "-")
     .replace(/[^\w-]+/g, "");
 
-  // Ensure slug uniqueness by appending a short random suffix if needed
   const existing = await prisma.course.findUnique({ where: { slug: baseSlug } });
-  const slug = existing
-    ? `${baseSlug}-${Math.random().toString(36).slice(2, 6)}`
-    : baseSlug;
+  const slug = existing ? `${baseSlug}-${Math.random().toString(36).slice(2, 6)}` : baseSlug;
 
   return prisma.course.create({
     data: {
       name: data.name,
       description: data.description,
-      price: data.price,
-      priceINR: data.priceINR ?? null,
-      priceUSD: data.priceUSD ?? null,
       details: data.details ?? undefined,
       businessId: vydhra.id,
       slug,
+      pricing: {
+        createMany: { data: data.pricing.map((p) => ({ currency: p.currency, amount: p.amount })) },
+      },
     },
+    include: { pricing: true },
   });
 }

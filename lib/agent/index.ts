@@ -145,13 +145,18 @@ export async function createAgent(data: {
       },
     });
 
-    // Create a corresponding Coupon
+    // Create a corresponding Coupon with per-currency discounts (defaults to USD)
     await tx.coupon.create({
       data: {
         code: data.code,
-        discountType: data.commissionType as "PERCENTAGE" | "FLAT",
-        discountValue: data.commissionValue,
         businessId: vydhra.id,
+        discounts: {
+          create: {
+            currency: "USD",
+            discountType: data.commissionType as "PERCENTAGE" | "FLAT",
+            discountValue: data.commissionValue,
+          },
+        },
       },
     });
 

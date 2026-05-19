@@ -14,7 +14,7 @@ import { toast } from "sonner";
 type CourseRow = {
   id: string;
   name: string;
-  price: number;
+  pricing: Record<string, number>;
   _count: { enrollments: number };
   createdAt: string;
 };
@@ -53,7 +53,7 @@ export default function CoursesPage() {
   const columns = [
     { header: "ID", accessor: "id" as const },
     { header: "Course Name", accessor: "name" as const },
-    { header: "Price", accessor: (row: CourseRow) => `$${row.price.toLocaleString()}` },
+    { header: "Price (USD)", accessor: (row: CourseRow) => row.pricing?.USD != null ? `$${row.pricing.USD.toLocaleString()}` : "—" },
     { header: "Enrollments", accessor: (row: CourseRow) => row._count?.enrollments || 0 },
     { header: "Created At", accessor: (row: CourseRow) => new Date(row.createdAt).toLocaleDateString() },
     {

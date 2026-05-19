@@ -45,9 +45,9 @@ type CourseBatch = {
   startDate: string;
   endDate: string;
   maxSeats: number | null;
-  price: number | null;
-  priceUSD: number | null;
   status: BatchStatus;
+  whatsappGroupUrl: string | null;
+  pricing: Record<string, number>;
   _count: { enrollments: number };
 };
 
@@ -55,7 +55,7 @@ type CourseDetail = {
   id: string;
   name: string;
   description: string | null;
-  price: number;
+  pricing: Record<string, number>;
   createdAt: string;
   enrollments: Array<{
     id: string;
@@ -81,8 +81,8 @@ const emptyBatchForm = {
   startDate: "",
   endDate: "",
   maxSeats: "",
-  price: "",
   status: "UPCOMING" as BatchStatus,
+  whatsappGroupUrl: "",
 };
 
 export default function CourseDetailPage() {
@@ -138,8 +138,8 @@ export default function CourseDetailPage() {
         startDate: batchForm.startDate,
         endDate: batchForm.endDate,
         maxSeats: batchForm.maxSeats ? parseInt(batchForm.maxSeats) : null,
-        price: batchForm.price ? parseFloat(batchForm.price) : null,
         status: batchForm.status,
+        whatsappGroupUrl: batchForm.whatsappGroupUrl || null,
       };
       if (editingBatchId) {
         await apiClient.put(`/vydhra/courses/${id}/batches/${editingBatchId}`, payload);
@@ -164,8 +164,8 @@ export default function CourseDetailPage() {
       startDate: batch.startDate.slice(0, 10),
       endDate: batch.endDate.slice(0, 10),
       maxSeats: batch.maxSeats?.toString() ?? "",
-      price: batch.price?.toString() ?? "",
       status: batch.status,
+      whatsappGroupUrl: batch.whatsappGroupUrl ?? "",
     });
     setShowBatchForm(true);
   };
@@ -248,7 +248,7 @@ export default function CourseDetailPage() {
                   Price
                 </p>
                 <p className="text-2xl font-black">
-                  ${course.price.toLocaleString()}
+                  {course.pricing?.USD != null ? `$${course.pricing.USD.toLocaleString()}` : course.pricing?.INR != null ? `₹${course.pricing.INR.toLocaleString()}` : "—"}
                 </p>
               </div>
               <Badge className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-50 border-none backdrop-blur-sm px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
@@ -462,10 +462,6 @@ export default function CourseDetailPage() {
                     <Input type="number" min="1" placeholder="Leave blank for unlimited" value={batchForm.maxSeats} onChange={(e) => handleBatchFormChange("maxSeats", e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs font-semibold">Price Override in USD (optional)</Label>
-                    <Input type="number" min="0" step="0.01" placeholder="Leave blank to use course price" value={batchForm.price} onChange={(e) => handleBatchFormChange("price", e.target.value)} />
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-xs font-semibold">Status</Label>
                     <select
                       value={batchForm.status}
@@ -477,6 +473,10 @@ export default function CourseDetailPage() {
                       <option value="COMPLETED">Completed</option>
                       <option value="CANCELLED">Cancelled</option>
                     </select>
+                  </div>
+                  <div className="md:col-span-2 space-y-1">
+                    <Label className="text-xs font-semibold">WhatsApp Group URL (optional)</Label>
+                    <Input type="url" placeholder="https://chat.whatsapp.com/..." value={batchForm.whatsappGroupUrl} onChange={(e) => handleBatchFormChange("whatsappGroupUrl", e.target.value)} />
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">
@@ -514,7 +514,7 @@ export default function CourseDetailPage() {
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Start</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">End</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Seats</TableHead>
-                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Price</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">WhatsApp</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -530,11 +530,19 @@ export default function CourseDetailPage() {
                       <TableCell className="px-4 py-4 text-slate-600">
                         {b.maxSeats ? `${b._count.enrollments}/${b.maxSeats}` : `${b._count.enrollments} enrolled`}
                       </TableCell>
-                      <TableCell className="px-4 py-4 text-slate-600">
-                        {b.price ? `$${b.price}` : b.priceUSD ? `$${b.priceUSD}` : <span className="text-slate-400 text-xs">Course price</span>}
+                      <TableCell className="px-4 py-4">
+                        {b.whatsappGroupUrl
+                          ? <a href={b.whatsappGroupUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-emerald-600 hover:underline">Configured ↗</a>
+                          : <span className="text-slate-400 text-xs">Not set</span>
+                        }
                       </TableCell>
                       <TableCell className="px-4 py-4 text-right">
                         <div className="flex items-center gap-1 justify-end">
+                          <Link href={`/courses/${id}/batches/${b.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600">
+                              <Eye className="h-3.5 w-3.5" />
+                            </Button>
+                          </Link>
                           <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-100" onClick={() => handleEditBatch(b)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>

@@ -1,33 +1,95 @@
 import prisma from "@/lib/prisma";
 import { BatchStatus } from "@prisma/client";
 
+function pricingToMap(rows: { currency: string; amount: number }[]): Record<string, number> {
+  return Object.fromEntries(rows.map((r) => [r.currency, r.amount]));
+}
+
 export async function getBatchesByCourseId(courseId: string) {
-  return prisma.courseBatch.findMany({
+  const batches = await prisma.courseBatch.findMany({
     where: { courseId },
     include: {
+      pricing: true,
       _count: { select: { enrollments: true } },
     },
     orderBy: { startDate: "asc" },
   });
+
+  return batches.map((b) => ({ ...b, pricing: pricingToMap(b.pricing) }));
 }
 
 export async function getActiveBatchesByCourseId(courseId: string) {
-  return prisma.courseBatch.findMany({
+  const batches = await prisma.courseBatch.findMany({
     where: { courseId, status: "ACTIVE" },
     include: {
+      pricing: true,
       _count: { select: { enrollments: true } },
     },
     orderBy: { startDate: "asc" },
   });
+
+  return batches.map((b) => ({ ...b, pricing: pricingToMap(b.pricing) }));
 }
 
 export async function getBatchById(id: string) {
-  return prisma.courseBatch.findUnique({
+  const batch = await prisma.courseBatch.findUnique({
     where: { id },
     include: {
+      pricing: true,
       _count: { select: { enrollments: true } },
     },
   });
+
+  if (!batch) return null;
+  return { ...batch, pricing: pricingToMap(batch.pricing) };
+}
+
+export async function getBatchDetails(id: string) {
+  const batch = await prisma.courseBatch.findUnique({
+    where: { id },
+    include: {
+      pricing: true,
+      course: { select: { id: true, name: true, slug: true } },
+      enrollments: {
+        include: {
+          student: { select: { id: true, name: true, email: true, phone: true, country: true } },
+          payments: {
+            select: { id: true, amount: true, currency: true, status: true, method: true, createdAt: true },
+            orderBy: { createdAt: "desc" },
+            take: 1,
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!batch) return null;
+
+  const completedPayments = batch.enrollments.flatMap((e) =>
+    e.payments.filter((p) => p.status === "COMPLETED")
+  );
+
+  const earningsByCurrency: Record<string, number> = {};
+  for (const p of completedPayments) {
+    const cur = (p.currency ?? "USD").toUpperCase();
+    earningsByCurrency[cur] = (earningsByCurrency[cur] ?? 0) + p.amount;
+  }
+
+  const durationDays = Math.ceil(
+    (new Date(batch.endDate).getTime() - new Date(batch.startDate).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return {
+    ...batch,
+    pricing: pricingToMap(batch.pricing),
+    stats: {
+      totalEnrolled: batch.enrollments.length,
+      seatsLeft: batch.maxSeats != null ? Math.max(0, batch.maxSeats - batch.enrollments.length) : null,
+      earningsByCurrency,
+      durationDays,
+    },
+  };
 }
 
 export async function createBatch(data: {
@@ -36,12 +98,20 @@ export async function createBatch(data: {
   startDate: Date;
   endDate: Date;
   maxSeats?: number | null;
-  price?: number | null;
-  priceINR?: number | null;
-  priceUSD?: number | null;
+  pricing?: { currency: string; amount: number }[];
   status?: BatchStatus;
+  whatsappGroupUrl?: string | null;
 }) {
-  return prisma.courseBatch.create({ data });
+  const { pricing = [], ...rest } = data;
+  return prisma.courseBatch.create({
+    data: {
+      ...rest,
+      pricing: {
+        createMany: { data: pricing },
+      },
+    },
+    include: { pricing: true },
+  });
 }
 
 export async function updateBatch(
@@ -51,13 +121,27 @@ export async function updateBatch(
     startDate?: Date;
     endDate?: Date;
     maxSeats?: number | null;
-    price?: number | null;
-    priceINR?: number | null;
-    priceUSD?: number | null;
+    pricing?: { currency: string; amount: number }[];
     status?: BatchStatus;
+    whatsappGroupUrl?: string | null;
   }
 ) {
-  return prisma.courseBatch.update({ where: { id }, data });
+  const { pricing, ...rest } = data;
+
+  if (pricing !== undefined) {
+    await prisma.batchPricing.deleteMany({ where: { batchId: id } });
+  }
+
+  return prisma.courseBatch.update({
+    where: { id },
+    data: {
+      ...rest,
+      ...(pricing !== undefined && {
+        pricing: { createMany: { data: pricing } },
+      }),
+    },
+    include: { pricing: true },
+  });
 }
 
 export async function deleteBatch(id: string) {

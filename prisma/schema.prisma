@@ -110,9 +110,6 @@ model Course {
   slug        String             @unique
   name        String
   description String?
-  price       Float
-  priceINR    Float?
-  priceUSD    Float?
   details     Json?
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt
@@ -121,6 +118,17 @@ model Course {
   business    Business           @relation(fields: [businessId], references: [id])
   enrollments CourseEnrollment[]
   batches     CourseBatch[]
+  pricing     CoursePricing[]
+}
+
+model CoursePricing {
+  id       String @id @default(cuid())
+  courseId String
+  currency String
+  amount   Float
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, currency])
 }
 
 model CourseBatch {
@@ -129,17 +137,26 @@ model CourseBatch {
   name        String
   startDate   DateTime
   endDate     DateTime
-  maxSeats    Int?
-  price       Float?
-  priceINR    Float?
-  priceUSD    Float?
-  status      BatchStatus        @default(UPCOMING)
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  course      Course             @relation(fields: [courseId], references: [id])
-  enrollments CourseEnrollment[]
+  maxSeats          Int?
+  status            BatchStatus        @default(UPCOMING)
+  whatsappGroupUrl  String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  createdBy         String?
+  updatedBy         String?
+  course            Course             @relation(fields: [courseId], references: [id])
+  enrollments       CourseEnrollment[]
+  pricing           BatchPricing[]
+}
+
+model BatchPricing {
+  id       String      @id @default(cuid())
+  batchId  String
+  currency String
+  amount   Float
+  batch    CourseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, currency])
 }
 
 model CourseEnrollment {
@@ -179,20 +196,30 @@ model Agent {
 }
 
 model Coupon {
-  id            String       @id @default(cuid())
+  id            String           @id @default(cuid())
   businessId    String
-  code          String       @unique
-  discountType  DiscountType @default(PERCENTAGE)
-  discountValue Float        @default(10)
-  maxUses       Int?
-  currentUses   Int          @default(0)
+  code        String           @unique
+  maxUses     Int?
+  currentUses   Int              @default(0)
   validUntil    DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
   createdBy     String?
   updatedBy     String?
-  business      Business     @relation(fields: [businessId], references: [id])
+  business      Business         @relation(fields: [businessId], references: [id])
   payments      Payment[]
+  discounts     CouponDiscount[]
+}
+
+model CouponDiscount {
+  id            String       @id @default(cuid())
+  couponId      String
+  currency      String
+  discountType  DiscountType
+  discountValue Float
+  coupon        Coupon       @relation(fields: [couponId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, currency])
 }
 
 model Enquiry {

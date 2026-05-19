@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 
 export async function POST(req: Request) {
   try {
-    const { code, amount } = await req.json();
+    const { code, amount, currency = "USD" } = await req.json();
 
     if (!code) {
       return NextResponse.json({ error: "Coupon code is required" }, { status: 400 });
@@ -22,28 +22,32 @@ export async function POST(req: Request) {
       where: {
         code: code.toUpperCase().trim(),
         businessId: vydhra.id,
-        OR: [
-          { validUntil: null },
-          { validUntil: { gte: new Date() } },
-        ],
+        OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
       },
+      include: { discounts: true },
     });
 
     if (!coupon) {
       return NextResponse.json({ valid: false, error: "Invalid or expired coupon code" });
     }
 
-    // Check max uses
     if (coupon.maxUses !== null && coupon.currentUses >= coupon.maxUses) {
       return NextResponse.json({ valid: false, error: "This coupon has reached its usage limit" });
     }
 
-    // Calculate discount
+    const discount = coupon.discounts.find((d) => d.currency === currency.toUpperCase());
+    if (!discount) {
+      return NextResponse.json({
+        valid: false,
+        error: `This coupon is not available in ${currency.toUpperCase()}`,
+      });
+    }
+
     let discountAmount = 0;
-    if (coupon.discountType === "PERCENTAGE") {
-      discountAmount = (amount * coupon.discountValue) / 100;
+    if (discount.discountType === "PERCENTAGE") {
+      discountAmount = (amount * discount.discountValue) / 100;
     } else {
-      discountAmount = coupon.discountValue;
+      discountAmount = discount.discountValue;
     }
 
     const finalAmount = Math.max(0, amount - discountAmount);
@@ -52,8 +56,9 @@ export async function POST(req: Request) {
       valid: true,
       couponId: coupon.id,
       code: coupon.code,
-      discountType: coupon.discountType,
-      discountValue: coupon.discountValue,
+      currency,
+      discountType: discount.discountType,
+      discountValue: discount.discountValue,
       discountAmount: parseFloat(discountAmount.toFixed(2)),
       finalAmount: parseFloat(finalAmount.toFixed(2)),
     });

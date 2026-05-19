@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createPayment } from "@/lib/payment";
 import prisma from "@/lib/prisma";
+import { sendEnrollmentConfirmationEmail } from "@/lib/email";
 
 export async function POST(req: Request) {
   try {
@@ -70,17 +71,43 @@ export async function POST(req: Request) {
     });
 
     // Build receipt data for the frontend
-    const studentData = await prisma.student.findUnique({
-      where: { id: studentId },
-      select: { name: true, email: true, phone: true, country: true },
-    });
+    const [studentData, courseData, enrollmentData] = await Promise.all([
+      prisma.student.findUnique({
+        where: { id: studentId },
+        select: { name: true, email: true, phone: true, country: true },
+      }),
+      courseId
+        ? prisma.course.findUnique({
+            where: { id: courseId },
+            select: { name: true, description: true },
+          })
+        : null,
+      prisma.courseEnrollment.findUnique({
+        where: { id: enrollmentId },
+        select: {
+          batch: { select: { name: true, whatsappGroupUrl: true } },
+        },
+      }),
+    ]);
 
-    const courseData = courseId
-      ? await prisma.course.findUnique({
-          where: { id: courseId },
-          select: { name: true, description: true },
-        })
-      : null;
+    // Send enrollment confirmation email (non-blocking)
+    if (studentData?.email && courseData?.name) {
+      const currencySymbolMap: Record<string, string> = {
+        USD: "$", INR: "₹", EUR: "€", GBP: "£", AED: "د.إ",
+      };
+      sendEnrollmentConfirmationEmail({
+        studentName: studentData.name,
+        studentEmail: studentData.email,
+        courseName: courseData.name,
+        amount,
+        currency,
+        currencySymbol: currencySymbolMap[currency.toUpperCase()] ?? currency,
+        razorpayPaymentId,
+        paidAt: payment.createdAt,
+        batchName: enrollmentData?.batch?.name ?? null,
+        whatsappGroupUrl: enrollmentData?.batch?.whatsappGroupUrl ?? null,
+      }).catch((err) => console.error("[Email] Failed to send enrollment email:", err));
+    }
 
     return NextResponse.json({
       success: true,

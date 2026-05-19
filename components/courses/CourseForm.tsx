@@ -19,12 +19,22 @@ import {
   Upload,
   BookOpen,
   DollarSign,
-  IndianRupee,
-  Tag,
   Code2,
   AlertCircle,
   CheckCircle2,
 } from "lucide-react";
+
+const SUPPORTED_CURRENCIES: { code: string; symbol: string; label: string }[] = [
+  { code: "USD", symbol: "$", label: "USD — US Dollar" },
+  { code: "INR", symbol: "₹", label: "INR — Indian Rupee" },
+  { code: "EUR", symbol: "€", label: "EUR — Euro" },
+  { code: "GBP", symbol: "£", label: "GBP — British Pound" },
+  { code: "AED", symbol: "د.إ", label: "AED — UAE Dirham" },
+];
+
+function currencySymbol(code: string): string {
+  return SUPPORTED_CURRENCIES.find((c) => c.code === code)?.symbol ?? code;
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -38,9 +48,6 @@ const DETAILS_TEMPLATE = {
   level: "Beginner",
   duration: "",
   description: "",
-  price: 0,
-  priceINR: 0,
-  priceUSD: 0,
   liveInteractiveClasses: true,
   features: [""],
   requirements: [""],
@@ -165,9 +172,10 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
   // Required fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
-  const [priceINR, setPriceINR] = useState("");
-  const [priceUSD, setPriceUSD] = useState("");
+  const [pricing, setPricing] = useState<{ currency: string; amount: string }[]>([
+    { currency: "USD", amount: "" },
+    { currency: "INR", amount: "" },
+  ]);
 
   // Details section
   const [isJsonMode, setIsJsonMode] = useState(true);
@@ -206,9 +214,12 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
       .then((course) => {
         setName(course.name ?? "");
         setDescription(course.description ?? "");
-        setPrice(course.price != null ? String(course.price) : "");
-        setPriceINR(course.priceINR != null ? String(course.priceINR) : "");
-        setPriceUSD(course.priceUSD != null ? String(course.priceUSD) : "");
+        if (course.pricing && typeof course.pricing === "object") {
+          const loaded = Object.entries(course.pricing as Record<string, number>).map(
+            ([currency, amount]) => ({ currency, amount: String(amount) })
+          );
+          if (loaded.length > 0) setPricing(loaded);
+        }
 
         const details = course.details ?? {};
         setJsonText(JSON.stringify(
@@ -417,7 +428,10 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
       return;
     }
     if (!name.trim()) { toast.error("Course title is required."); return; }
-    if (!price) { toast.error("Price is required."); return; }
+    const pricingPayload = pricing
+      .filter((p) => p.amount.trim() !== "")
+      .map((p) => ({ currency: p.currency, amount: parseFloat(p.amount) }));
+    if (pricingPayload.length === 0) { toast.error("At least one currency price is required."); return; }
 
     let details: Record<string, unknown> | null = null;
 
@@ -448,9 +462,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
-      price: parseFloat(price),
-      priceINR: priceINR ? parseFloat(priceINR) : null,
-      priceUSD: priceUSD ? parseFloat(priceUSD) : null,
+      pricing: pricingPayload,
       details,
     };
 
@@ -549,68 +561,82 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
       </div>
 
       {/* ── Pricing ─────────────────────────────── */}
-      <div className="space-y-5">
+      <div className="space-y-4">
         <SectionHeading
           icon={DollarSign}
           title="Pricing"
-          description="Set the base price. INR and USD are optional for multi-currency checkout."
+          description="Set prices per currency. At least one is required. Add more currencies as needed."
         />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold">
-              Price <span className="text-red-500">*</span>
-            </Label>
-            <div className="relative">
-              <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="199"
-                required
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className="h-11 pl-9"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-1">
-              Price (INR)
-              <Badge variant="secondary" className="text-[10px] py-0 ml-1">optional</Badge>
-            </Label>
-            <div className="relative">
-              <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="16999"
-                value={priceINR}
-                onChange={(e) => setPriceINR(e.target.value)}
-                className="h-11 pl-9"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-sm font-semibold flex items-center gap-1">
-              Price (USD)
-              <Badge variant="secondary" className="text-[10px] py-0 ml-1">optional</Badge>
-            </Label>
-            <div className="relative">
-              <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="199"
-                value={priceUSD}
-                onChange={(e) => setPriceUSD(e.target.value)}
-                className="h-11 pl-9"
-              />
-            </div>
-          </div>
+        <div className="space-y-2">
+          {pricing.map((row, i) => {
+            const usedCodes = pricing.map((p) => p.currency);
+            const available = SUPPORTED_CURRENCIES.filter(
+              (c) => c.code === row.currency || !usedCodes.includes(c.code)
+            );
+            return (
+              <div key={i} className="flex gap-2 items-center">
+                <select
+                  value={row.currency}
+                  onChange={(e) => {
+                    const next = [...pricing];
+                    next[i] = { ...next[i], currency: e.target.value };
+                    setPricing(next);
+                  }}
+                  className="h-10 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring w-44 shrink-0"
+                >
+                  {available.map((c) => (
+                    <option key={c.code} value={c.code}>{c.label}</option>
+                  ))}
+                </select>
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
+                    {currencySymbol(row.currency)}
+                  </span>
+                  <Input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={row.amount}
+                    onChange={(e) => {
+                      const next = [...pricing];
+                      next[i] = { ...next[i], amount: e.target.value };
+                      setPricing(next);
+                    }}
+                    className="h-10 pl-8"
+                  />
+                </div>
+                {pricing.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 shrink-0"
+                    onClick={() => setPricing(pricing.filter((_, idx) => idx !== i))}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            );
+          })}
         </div>
+        {pricing.length < SUPPORTED_CURRENCIES.length && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs text-primary hover:text-primary hover:bg-primary/5 px-2 gap-1"
+            onClick={() => {
+              const usedCodes = pricing.map((p) => p.currency);
+              const next = SUPPORTED_CURRENCIES.find((c) => !usedCodes.includes(c.code));
+              if (next) setPricing([...pricing, { currency: next.code, amount: "" }]);
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add currency
+          </Button>
+        )}
       </div>
 
       {/* ── Course Images ─────────────────────────── */}
