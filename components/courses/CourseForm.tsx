@@ -184,11 +184,17 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
     requirements: [""],
   });
 
-  // Image
+  // Thumbnail image
   const [imageUploading, setImageUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Hero image
+  const [heroImageUploading, setHeroImageUploading] = useState(false);
+  const [heroImagePreview, setHeroImagePreview] = useState<string | null>(null);
+  const [heroImageUrl, setHeroImageUrl] = useState("");
+  const heroFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Load existing course in edit mode ──────────────────────────────────────
 
@@ -216,6 +222,10 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
           setImageUrl(details.image);
           setImagePreview(details.image);
         }
+        if (details.heroImage) {
+          setHeroImageUrl(details.heroImage);
+          setHeroImagePreview(details.heroImage);
+        }
       })
       .catch(() => toast.error("Failed to load course details."))
       .finally(() => setFetchLoading(false));
@@ -242,6 +252,10 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
         setImageUrl(parsed.image);
         setImagePreview(parsed.image);
       }
+      if (parsed.heroImage) {
+        setHeroImageUrl(parsed.heroImage);
+        setHeroImagePreview(parsed.heroImage);
+      }
       setIsJsonMode(false);
     } catch {
       toast.error("Invalid JSON — cannot switch to form mode.");
@@ -251,6 +265,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
   const switchToJson = () => {
     const details: Record<string, unknown> = { ...DETAILS_TEMPLATE };
     if (imageUrl) details.image = imageUrl;
+    if (heroImageUrl) details.heroImage = heroImageUrl;
     details.level = detailsForm.level;
     if (detailsForm.duration) details.duration = detailsForm.duration;
     if (detailsForm.category) details.category = detailsForm.category;
@@ -334,11 +349,70 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
     }
   };
 
+  // ── Hero image upload ───────────────────────────────────────────────────────
+
+  const handleHeroImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (ev) => setHeroImagePreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+
+    setHeroImageUploading(true);
+    try {
+      const token = localStorage.getItem("accessToken");
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload/image", {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Upload failed");
+      }
+      const { url } = (await res.json()) as { url: string };
+      setHeroImageUrl(url);
+      if (isJsonMode) {
+        setJsonText((prev) => {
+          try {
+            const parsed = JSON.parse(prev);
+            parsed.heroImage = url;
+            return JSON.stringify(parsed, null, 2);
+          } catch { return prev; }
+        });
+      }
+      toast.success("Hero image uploaded.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Upload failed");
+      setHeroImagePreview(null);
+    } finally {
+      setHeroImageUploading(false);
+    }
+  };
+
+  const removeHeroImage = () => {
+    setHeroImageUrl("");
+    setHeroImagePreview(null);
+    if (heroFileInputRef.current) heroFileInputRef.current.value = "";
+    if (isJsonMode) {
+      setJsonText((prev) => {
+        try {
+          const parsed = JSON.parse(prev);
+          parsed.heroImage = "";
+          return JSON.stringify(parsed, null, 2);
+        } catch { return prev; }
+      });
+    }
+  };
+
   // ── Submit ──────────────────────────────────────────────────────────────────
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (imageUploading) {
+    if (imageUploading || heroImageUploading) {
       toast.error("Please wait for the image to finish uploading.");
       return;
     }
@@ -359,6 +433,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
     } else {
       const d: Record<string, unknown> = {};
       if (imageUrl) d.image = imageUrl;
+      if (heroImageUrl) d.heroImage = heroImageUrl;
       if (detailsForm.level) d.level = detailsForm.level;
       if (detailsForm.duration) d.duration = detailsForm.duration;
       if (detailsForm.category) d.category = detailsForm.category;
@@ -433,7 +508,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
           : "List a new course on the platform with full details, pricing, and curriculum."
       }
       onSubmit={handleSubmit}
-      loading={loading || imageUploading}
+      loading={loading || imageUploading || heroImageUploading}
       success={success}
       backUrl="/courses"
       submitLabel={isEdit ? "Save Changes" : "Publish Course"}
@@ -538,12 +613,12 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
         </div>
       </div>
 
-      {/* ── Course Image ─────────────────────────── */}
+      {/* ── Course Images ─────────────────────────── */}
       <div className="space-y-4">
         <SectionHeading
           icon={ImagePlus}
-          title="Course Thumbnail"
-          description="Recommended 800×800 px, max 5 MB. URL is saved to details.image."
+          title="Course Images"
+          description="Thumbnail and Hero image — both 800×800 px, max 5 MB each."
         />
         <input
           ref={fileInputRef}
@@ -552,47 +627,106 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
           className="hidden"
           onChange={handleImageSelect}
         />
-        {imagePreview || imageUrl ? (
-          <div className="relative w-full max-w-md rounded-xl overflow-hidden border border-gray-200 bg-gray-50 aspect-square group">
-            <Image
-              src={imagePreview || imageUrl}
-              alt="Course thumbnail"
-              fill
-              className="object-cover"
-            />
-            {imageUploading && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <Loader2 className="h-8 w-8 text-white animate-spin" />
+        <input
+          ref={heroFileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={handleHeroImageSelect}
+        />
+        <div className="grid grid-cols-2 gap-4">
+          {/* Thumbnail */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-gray-600">Thumbnail <span className="text-gray-400 font-normal">800×800 px</span></p>
+            {imagePreview || imageUrl ? (
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 group">
+                <Image
+                  src={imagePreview || imageUrl}
+                  alt="Course thumbnail"
+                  fill
+                  className="object-cover"
+                />
+                {imageUploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  </div>
+                )}
+                {!imageUploading && (
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-1.5">
+                      <Button type="button" size="sm" variant="secondary" className="h-7 text-xs gap-1" onClick={() => fileInputRef.current?.click()}>
+                        <Upload className="h-3 w-3" /> Change
+                      </Button>
+                      <Button type="button" size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={removeImage}>
+                        <X className="h-3 w-3" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-            {!imageUploading && (
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-                <div className="flex gap-2">
-                  <Button type="button" size="sm" variant="secondary" className="h-8 text-xs gap-1.5" onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-3.5 w-3.5" /> Change
-                  </Button>
-                  <Button type="button" size="sm" variant="destructive" className="h-8 text-xs gap-1.5" onClick={removeImage}>
-                    <X className="h-3.5 w-3.5" /> Remove
-                  </Button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-primary/40 transition-colors flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="p-2.5 rounded-full bg-gray-100 group-hover:bg-primary/10 transition-colors">
+                  <ImagePlus className="h-5 w-5 text-gray-400 group-hover:text-primary transition-colors" />
                 </div>
-              </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">Click to upload</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">JPEG, PNG, WebP</p>
+                </div>
+              </button>
             )}
           </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full max-w-md aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-primary/40 transition-colors flex flex-col items-center justify-center gap-3 group"
-          >
-            <div className="p-3 rounded-full bg-gray-100 group-hover:bg-primary/10 transition-colors">
-              <ImagePlus className="h-6 w-6 text-gray-400 group-hover:text-primary transition-colors" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-medium text-gray-500 group-hover:text-gray-700">Click to upload image</p>
-              <p className="text-xs text-gray-400 mt-0.5">JPEG, PNG, WebP — max 5 MB</p>
-            </div>
-          </button>
-        )}
+
+          {/* Hero Image */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-semibold text-gray-600">Hero Image <span className="text-gray-400 font-normal">800×800 px</span></p>
+            {heroImagePreview || heroImageUrl ? (
+              <div className="relative w-full aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50 group">
+                <Image
+                  src={heroImagePreview || heroImageUrl}
+                  alt="Course hero image"
+                  fill
+                  className="object-cover"
+                />
+                {heroImageUploading && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <Loader2 className="h-6 w-6 text-white animate-spin" />
+                  </div>
+                )}
+                {!heroImageUploading && (
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-1.5">
+                      <Button type="button" size="sm" variant="secondary" className="h-7 text-xs gap-1" onClick={() => heroFileInputRef.current?.click()}>
+                        <Upload className="h-3 w-3" /> Change
+                      </Button>
+                      <Button type="button" size="sm" variant="destructive" className="h-7 text-xs gap-1" onClick={removeHeroImage}>
+                        <X className="h-3 w-3" /> Remove
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => heroFileInputRef.current?.click()}
+                className="w-full aspect-square rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 hover:bg-gray-100 hover:border-primary/40 transition-colors flex flex-col items-center justify-center gap-2 group"
+              >
+                <div className="p-2.5 rounded-full bg-gray-100 group-hover:bg-primary/10 transition-colors">
+                  <ImagePlus className="h-5 w-5 text-gray-400 group-hover:text-primary transition-colors" />
+                </div>
+                <div className="text-center">
+                  <p className="text-xs font-medium text-gray-500 group-hover:text-gray-700">Click to upload</p>
+                  <p className="text-[11px] text-gray-400 mt-0.5">JPEG, PNG, WebP</p>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ── Course Details (JSON / Form toggle) ──── */}
