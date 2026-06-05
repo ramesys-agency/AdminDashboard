@@ -51,7 +51,11 @@ export async function getStudentById(id: string) {
     include: {
       enrollments: {
         include: {
-          course: true,
+          course: {
+            include: {
+              pricing: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       },
@@ -99,13 +103,21 @@ export async function upsertStudent(data: {
   });
 }
 
-export async function createEnrollment(studentId: string, courseId: string, batchId?: string | null) {
+export async function createEnrollment(
+  studentId: string, 
+  courseId: string, 
+  batchId?: string | null,
+  acceptedTerms: boolean = false,
+  acceptedTermsAt?: Date | null
+) {
   return prisma.courseEnrollment.create({
     data: {
       studentId,
       courseId,
       ...(batchId && { batchId }),
-      status: "ACTIVE",
+      status: "PENDING",
+      acceptedTerms,
+      acceptedTermsAt: acceptedTerms ? (acceptedTermsAt ?? new Date()) : null,
     },
   });
 }

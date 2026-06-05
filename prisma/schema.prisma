@@ -122,11 +122,12 @@ model Course {
 }
 
 model CoursePricing {
-  id       String @id @default(cuid())
-  courseId String
-  currency String
-  amount   Float
-  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  id            String @id @default(cuid())
+  courseId      String
+  currency      String
+  amount        Float
+  originalPrice Float?
+  course        Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
 
   @@unique([courseId, currency])
 }
@@ -150,29 +151,32 @@ model CourseBatch {
 }
 
 model BatchPricing {
-  id       String      @id @default(cuid())
-  batchId  String
-  currency String
-  amount   Float
-  batch    CourseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  id            String      @id @default(cuid())
+  batchId       String
+  currency      String
+  amount        Float
+  originalPrice Float?
+  batch         CourseBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@unique([batchId, currency])
 }
 
 model CourseEnrollment {
-  id        String       @id @default(cuid())
-  studentId String
-  courseId  String
-  batchId   String?
-  status    String
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  createdBy String?
-  updatedBy String?
-  batch     CourseBatch? @relation(fields: [batchId], references: [id])
-  course    Course       @relation(fields: [courseId], references: [id])
-  student   Student      @relation(fields: [studentId], references: [id])
-  payments  Payment[]
+  id              String       @id @default(cuid())
+  studentId       String
+  courseId        String
+  batchId         String?
+  status          String
+  acceptedTerms   Boolean      @default(false)
+  acceptedTermsAt DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdBy       String?
+  updatedBy       String?
+  batch           CourseBatch? @relation(fields: [batchId], references: [id])
+  course          Course       @relation(fields: [courseId], references: [id])
+  student         Student      @relation(fields: [studentId], references: [id])
+  payments        Payment[]
 }
 
 model Agent {
@@ -253,6 +257,8 @@ model Payment {
   razorpayOrderId    String?
   razorpayPaymentId  String?
   razorpaySignature  String?
+  acceptedTerms      Boolean           @default(false)
+  acceptedTermsAt    DateTime?
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   createdBy          String?

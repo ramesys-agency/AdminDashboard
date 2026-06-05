@@ -42,7 +42,10 @@ type StudentDetail = {
     course: {
       id: string;
       name: string;
-      price: number;
+      pricing?: Array<{
+        currency: string;
+        amount: number;
+      }>;
     };
   }>;
   payments: Array<{
@@ -203,7 +206,7 @@ export default function StudentDetailPage() {
                         <TableCell className="px-6 py-4">
                           <Badge
                             variant={
-                              e.status === "ENROLLED" ? "default" : "secondary"
+                            ["ENROLLED", "PAID", "ACTIVE", "COMPLETED"].includes(e.status) ? "default" : "secondary"
                             }
                             className="rounded-full px-3"
                           >
@@ -211,7 +214,17 @@ export default function StudentDetailPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="px-6 py-4 text-slate-600 font-medium">
-                          ${e.course.price.toLocaleString()}
+                          {(() => {
+                            const usdPrice = e.course.pricing?.find((p) => p.currency === "USD")?.amount;
+                            const inrPrice = e.course.pricing?.find((p) => p.currency === "INR")?.amount;
+                            if (usdPrice !== undefined && usdPrice !== null) {
+                              return `$${usdPrice.toLocaleString()}`;
+                            }
+                            if (inrPrice !== undefined && inrPrice !== null) {
+                              return `₹${inrPrice.toLocaleString()}`;
+                            }
+                            return "—";
+                          })()}
                         </TableCell>
                         <TableCell className="px-6 py-4 text-slate-500">
                           {new Date(e.createdAt).toLocaleDateString()}

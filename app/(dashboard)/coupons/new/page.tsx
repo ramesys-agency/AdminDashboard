@@ -12,10 +12,6 @@ import { Plus, X } from "lucide-react";
 
 const SUPPORTED_CURRENCIES = [
   { code: "USD", symbol: "$", label: "USD — US Dollar" },
-  { code: "INR", symbol: "₹", label: "INR — Indian Rupee" },
-  { code: "EUR", symbol: "€", label: "EUR — Euro" },
-  { code: "GBP", symbol: "£", label: "GBP — British Pound" },
-  { code: "AED", symbol: "د.إ", label: "AED — UAE Dirham" },
 ];
 
 type DiscountRow = {
@@ -26,7 +22,6 @@ type DiscountRow = {
 
 const defaultDiscounts: DiscountRow[] = [
   { currency: "USD", discountType: "PERCENTAGE", discountValue: "10" },
-  { currency: "INR", discountType: "PERCENTAGE", discountValue: "10" },
 ];
 
 export default function NewCouponPage() {

@@ -1,8 +1,18 @@
 import prisma from "@/lib/prisma";
 import { BatchStatus } from "@prisma/client";
 
-function pricingToMap(rows: { currency: string; amount: number }[]): Record<string, number> {
+type PricingRow = { currency: string; amount: number; originalPrice?: number | null };
+
+function pricingToMap(rows: PricingRow[]): Record<string, number> {
   return Object.fromEntries(rows.map((r) => [r.currency, r.amount]));
+}
+
+function originalPricingToMap(rows: PricingRow[]): Record<string, number> {
+  return Object.fromEntries(
+    rows
+      .filter((r) => r.originalPrice !== null && r.originalPrice !== undefined)
+      .map((r) => [r.currency, r.originalPrice as number])
+  );
 }
 
 export async function getBatchesByCourseId(courseId: string) {
@@ -15,7 +25,11 @@ export async function getBatchesByCourseId(courseId: string) {
     orderBy: { startDate: "asc" },
   });
 
-  return batches.map((b) => ({ ...b, pricing: pricingToMap(b.pricing) }));
+  return batches.map((b) => ({
+    ...b,
+    pricing: pricingToMap(b.pricing),
+    originalPricing: originalPricingToMap(b.pricing),
+  }));
 }
 
 export async function getActiveBatchesByCourseId(courseId: string) {
@@ -28,7 +42,11 @@ export async function getActiveBatchesByCourseId(courseId: string) {
     orderBy: { startDate: "asc" },
   });
 
-  return batches.map((b) => ({ ...b, pricing: pricingToMap(b.pricing) }));
+  return batches.map((b) => ({
+    ...b,
+    pricing: pricingToMap(b.pricing),
+    originalPricing: originalPricingToMap(b.pricing),
+  }));
 }
 
 export async function getBatchById(id: string) {
@@ -41,7 +59,11 @@ export async function getBatchById(id: string) {
   });
 
   if (!batch) return null;
-  return { ...batch, pricing: pricingToMap(batch.pricing) };
+  return {
+    ...batch,
+    pricing: pricingToMap(batch.pricing),
+    originalPricing: originalPricingToMap(batch.pricing),
+  };
 }
 
 export async function getBatchDetails(id: string) {
@@ -83,6 +105,7 @@ export async function getBatchDetails(id: string) {
   return {
     ...batch,
     pricing: pricingToMap(batch.pricing),
+    originalPricing: originalPricingToMap(batch.pricing),
     stats: {
       totalEnrolled: batch.enrollments.length,
       seatsLeft: batch.maxSeats != null ? Math.max(0, batch.maxSeats - batch.enrollments.length) : null,
@@ -98,7 +121,7 @@ export async function createBatch(data: {
   startDate: Date;
   endDate: Date;
   maxSeats?: number | null;
-  pricing?: { currency: string; amount: number }[];
+  pricing?: { currency: string; amount: number; originalPrice?: number | null }[];
   status?: BatchStatus;
   whatsappGroupUrl?: string | null;
 }) {
@@ -121,7 +144,7 @@ export async function updateBatch(
     startDate?: Date;
     endDate?: Date;
     maxSeats?: number | null;
-    pricing?: { currency: string; amount: number }[];
+    pricing?: { currency: string; amount: number; originalPrice?: number | null }[];
     status?: BatchStatus;
     whatsappGroupUrl?: string | null;
   }

@@ -11,6 +11,18 @@ import bcrypt from "bcryptjs";
 import { coursesData } from "./data/courses";
 
 async function main() {
+  console.log("🌱 Checking database for existing data...");
+
+  // Leave if any Business, AdminUser or Course is already present
+  const businessCount = await prisma.business.count();
+  const adminCount = await prisma.adminUser.count();
+  const courseCount = await prisma.course.count();
+
+  if (businessCount > 0 || adminCount > 0 || courseCount > 0) {
+    console.log("⚠️ Database already seeded or contains master data. Skipping seeding.");
+    return;
+  }
+
   console.log("🧹 Cleaning up database...");
   await prisma.payment.deleteMany({});
   await prisma.invoice.deleteMany({});

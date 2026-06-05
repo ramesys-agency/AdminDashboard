@@ -35,7 +35,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ valid: false, error: "This coupon has reached its usage limit" });
     }
 
-    const discount = coupon.discounts.find((d) => d.currency === currency.toUpperCase());
+    let discount = coupon.discounts.find((d) => d.currency === currency.toUpperCase());
+    let isINRConverted = false;
+    let exchangeRate = 83.5;
+
+    if (!discount && currency.toUpperCase() === "INR") {
+      discount = coupon.discounts.find((d) => d.currency === "USD");
+      if (discount) {
+        isINRConverted = true;
+        try {
+          const res = await fetch("https://open.er-api.com/v6/latest/USD");
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.rates?.INR) {
+              exchangeRate = data.rates.INR;
+            }
+          }
+        } catch (e) {
+          console.error("Failed to fetch exchange rate for coupon validation:", e);
+        }
+      }
+    }
+
     if (!discount) {
       return NextResponse.json({
         valid: false,
@@ -47,7 +68,11 @@ export async function POST(req: Request) {
     if (discount.discountType === "PERCENTAGE") {
       discountAmount = (amount * discount.discountValue) / 100;
     } else {
-      discountAmount = discount.discountValue;
+      if (isINRConverted) {
+        discountAmount = discount.discountValue * exchangeRate;
+      } else {
+        discountAmount = discount.discountValue;
+      }
     }
 
     const finalAmount = Math.max(0, amount - discountAmount);
@@ -58,7 +83,9 @@ export async function POST(req: Request) {
       code: coupon.code,
       currency,
       discountType: discount.discountType,
-      discountValue: discount.discountValue,
+      discountValue: isINRConverted && discount.discountType === "FLAT" 
+        ? parseFloat((discount.discountValue * exchangeRate).toFixed(2))
+        : discount.discountValue,
       discountAmount: parseFloat(discountAmount.toFixed(2)),
       finalAmount: parseFloat(finalAmount.toFixed(2)),
     });

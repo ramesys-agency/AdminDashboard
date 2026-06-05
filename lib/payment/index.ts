@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { sendEnrollmentConfirmationEmail } from "@/lib/email";
 
 export type GetPaymentsParams = {
   page?: number;
@@ -105,6 +106,8 @@ export async function createPayment(data: {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  acceptedTerms?: boolean;
+  acceptedTermsAt?: Date | null;
 }) {
   const vydhra = await prisma.business.findFirst({
     where: { type: "COURSE_SELLING" },
@@ -143,7 +146,143 @@ export async function createPayment(data: {
         razorpayOrderId: data.razorpayOrderId || null,
         razorpayPaymentId: data.razorpayPaymentId || null,
         razorpaySignature: data.razorpaySignature || null,
+        acceptedTerms: data.acceptedTerms ?? false,
+        acceptedTermsAt: data.acceptedTermsAt ?? null,
       },
     });
   });
+}
+
+export async function completePaymentAndEnrollment(params: {
+  amount: number;
+  currency: string;
+  studentId: string;
+  enrollmentId: string;
+  courseId?: string | null;
+  couponId?: string | null;
+  razorpayOrderId: string;
+  razorpayPaymentId: string;
+  razorpaySignature: string;
+  method?: string;
+}) {
+  const {
+    amount,
+    currency,
+    studentId,
+    enrollmentId,
+    courseId,
+    couponId,
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    method = "RAZORPAY",
+  } = params;
+
+  // 1. Prevent duplicate processing
+  const existingPayment = await prisma.payment.findFirst({
+    where: { razorpayPaymentId },
+  });
+  if (existingPayment) {
+    return { success: true, alreadyProcessed: true, payment: existingPayment };
+  }
+
+  // 2. Resolve agentId if couponId is present
+  let agentId: string | null = null;
+  if (couponId) {
+    const coupon = await prisma.coupon.findUnique({
+      where: { id: couponId },
+      select: { code: true },
+    });
+    if (coupon) {
+      const agent = await prisma.agent.findUnique({
+        where: { code: coupon.code },
+        select: { id: true },
+      });
+      if (agent) {
+        agentId = agent.id;
+      }
+    }
+  }
+
+  // 3. Create payment record
+  const payment = await createPayment({
+    amount,
+    currency,
+    status: "COMPLETED",
+    method,
+    studentId,
+    courseEnrollmentId: enrollmentId,
+    couponId: couponId ?? undefined,
+    agentId: agentId ?? undefined,
+    razorpayOrderId,
+    razorpayPaymentId,
+    razorpaySignature,
+    acceptedTerms: true,
+    acceptedTermsAt: new Date(),
+  });
+
+  // 4. Update coupon usage
+  if (couponId) {
+    await prisma.coupon.update({
+      where: { id: couponId },
+      data: { currentUses: { increment: 1 } },
+    });
+  }
+
+  // 5. Increment Agent Earnings
+  if (agentId) {
+    await incrementAgentEarnings(agentId, amount);
+  }
+
+  // 6. Update enrollment status to PAID
+  await prisma.courseEnrollment.update({
+    where: { id: enrollmentId },
+    data: { status: "PAID" },
+  });
+
+  // 7. Fetch details and send confirmation email asynchronously
+  const [studentData, courseData, enrollmentData] = await Promise.all([
+    prisma.student.findUnique({
+      where: { id: studentId },
+      select: { name: true, email: true, phone: true, country: true },
+    }),
+    courseId
+      ? prisma.course.findUnique({
+          where: { id: courseId },
+          select: { name: true, description: true },
+        })
+      : null,
+    prisma.courseEnrollment.findUnique({
+      where: { id: enrollmentId },
+      select: {
+        batch: { select: { name: true, whatsappGroupUrl: true } },
+      },
+    }),
+  ]);
+
+  if (studentData?.email && courseData?.name) {
+    const currencySymbolMap: Record<string, string> = {
+      USD: "$", INR: "₹", EUR: "€", GBP: "£", AED: "د.إ",
+    };
+    sendEnrollmentConfirmationEmail({
+      studentName: studentData.name,
+      studentEmail: studentData.email,
+      courseName: courseData.name,
+      amount,
+      currency,
+      currencySymbol: currencySymbolMap[currency.toUpperCase()] ?? currency,
+      razorpayPaymentId,
+      paidAt: payment.createdAt,
+      batchName: enrollmentData?.batch?.name ?? null,
+      whatsappGroupUrl: enrollmentData?.batch?.whatsappGroupUrl ?? null,
+    }).catch((err) => console.error("[Email] Failed to send enrollment email:", err));
+  }
+
+  return {
+    success: true,
+    alreadyProcessed: false,
+    payment,
+    student: studentData,
+    course: courseData,
+  };
 }

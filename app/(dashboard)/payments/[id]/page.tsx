@@ -35,6 +35,8 @@ type PaymentDetail = {
   method: string | null;
   transactionId: string | null;
   createdAt: string;
+  acceptedTerms?: boolean | null;
+  acceptedTermsAt?: string | null;
   student?: { id: string; name: string; email: string } | null;
   agent?: { id: string; name: string; code: string } | null;
   courseEnrollment?: {
@@ -220,7 +222,7 @@ export default function PaymentDetailPage() {
                     {payment.transactionId || "INTERNAL_GEN"}
                   </TableCell>
                 </TableRow>
-                <TableRow>
+                <TableRow className="border-b border-emerald-50">
                   <TableCell className="font-medium text-emerald-700/60 px-6 py-4">
                     Verified
                   </TableCell>
@@ -231,6 +233,22 @@ export default function PaymentDetailPage() {
                     >
                       System Verified
                     </Badge>
+                  </TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium text-emerald-700/60 px-6 py-4">
+                    Terms & Conditions
+                  </TableCell>
+                  <TableCell className="px-6 py-4">
+                    {payment.acceptedTerms ? (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        Accepted on {new Date(payment.acceptedTermsAt || payment.createdAt).toLocaleString()}
+                      </Badge>
+                    ) : (
+                      <Badge variant="destructive">
+                        Not Recorded
+                      </Badge>
+                    )}
                   </TableCell>
                 </TableRow>
               </TableBody>

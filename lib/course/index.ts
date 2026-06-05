@@ -6,10 +6,18 @@ export type GetCoursesParams = {
   search?: string;
 };
 
-type PricingRow = { currency: string; amount: number };
+type PricingRow = { currency: string; amount: number; originalPrice?: number | null };
 
 function pricingToMap(rows: PricingRow[]): Record<string, number> {
   return Object.fromEntries(rows.map((r) => [r.currency, r.amount]));
+}
+
+function originalPricingToMap(rows: PricingRow[]): Record<string, number> {
+  return Object.fromEntries(
+    rows
+      .filter((r) => r.originalPrice !== null && r.originalPrice !== undefined)
+      .map((r) => [r.currency, r.originalPrice as number])
+  );
 }
 
 export async function getCourses({ page = 1, limit = 10, search }: GetCoursesParams = {}) {
@@ -50,6 +58,7 @@ export async function getCourses({ page = 1, limit = 10, search }: GetCoursesPar
     data: courses.map((c) => ({
       ...c,
       pricing: pricingToMap(c.pricing),
+      originalPricing: originalPricingToMap(c.pricing),
     })),
     metadata: {
       total,
@@ -80,6 +89,7 @@ export async function getCourseBySlug(slug: string) {
   return {
     ...course,
     pricing: pricingToMap(course.pricing),
+    originalPricing: originalPricingToMap(course.pricing),
     batches: batches.map((b) => ({
       id: b.id,
       name: b.name,
@@ -87,6 +97,7 @@ export async function getCourseBySlug(slug: string) {
       endDate: b.endDate.toISOString(),
       maxSeats: b.maxSeats,
       pricing: pricingToMap(b.pricing),
+      originalPricing: originalPricingToMap(b.pricing),
       status: b.status,
       enrollmentCount: b._count.enrollments,
     })),
@@ -120,6 +131,7 @@ export async function getCourseById(id: string) {
   return {
     ...course,
     pricing: pricingToMap(course.pricing),
+    originalPricing: originalPricingToMap(course.pricing),
     enrollments,
     stats: { totalEnrollments: enrollments.length, totalRevenue },
   };
@@ -130,7 +142,7 @@ export async function updateCourse(
   data: {
     name: string;
     description?: string | null;
-    pricing: { currency: string; amount: number }[];
+    pricing: { currency: string; amount: number; originalPrice?: number | null }[];
     details?: Record<string, unknown> | null;
   }
 ) {
@@ -143,7 +155,13 @@ export async function updateCourse(
       description: data.description,
       details: data.details ?? undefined,
       pricing: {
-        createMany: { data: data.pricing.map((p) => ({ currency: p.currency, amount: p.amount })) },
+        createMany: {
+          data: data.pricing.map((p) => ({
+            currency: p.currency,
+            amount: p.amount,
+            originalPrice: p.originalPrice ?? null,
+          })),
+        },
       },
     },
     include: { pricing: true },
@@ -153,7 +171,7 @@ export async function updateCourse(
 export async function createCourse(data: {
   name: string;
   description?: string | null;
-  pricing: { currency: string; amount: number }[];
+  pricing: { currency: string; amount: number; originalPrice?: number | null }[];
   details?: Record<string, unknown> | null;
 }) {
   const vydhra = await prisma.business.findFirst({
@@ -179,7 +197,13 @@ export async function createCourse(data: {
       businessId: vydhra.id,
       slug,
       pricing: {
-        createMany: { data: data.pricing.map((p) => ({ currency: p.currency, amount: p.amount })) },
+        createMany: {
+          data: data.pricing.map((p) => ({
+            currency: p.currency,
+            amount: p.amount,
+            originalPrice: p.originalPrice ?? null,
+          })),
+        },
       },
     },
     include: { pricing: true },

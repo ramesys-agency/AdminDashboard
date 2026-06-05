@@ -22,12 +22,20 @@ export async function POST(req: Request) {
       currency = "USD",
       couponCode,
       batchId,
+      acceptedTerms,
     } = body;
 
     // --- Validate required fields ---
     if (!name || !email || !courseSlug || !amount) {
       return NextResponse.json(
         { error: "Missing required fields: name, email, courseSlug, amount" },
+        { status: 400 }
+      );
+    }
+
+    if (!acceptedTerms) {
+      return NextResponse.json(
+        { error: "You must agree to the Terms & Conditions to enroll." },
         { status: 400 }
       );
     }
@@ -90,7 +98,12 @@ export async function POST(req: Request) {
       }
 
       if (batch.maxSeats !== null) {
-        const seatsTaken = await prisma.courseEnrollment.count({ where: { batchId } });
+        const seatsTaken = await prisma.courseEnrollment.count({
+          where: {
+            batchId,
+            status: { not: "PENDING" },
+          },
+        });
         if (seatsTaken >= batch.maxSeats) {
           return NextResponse.json({ error: "This batch is full" }, { status: 400 });
         }
@@ -101,7 +114,7 @@ export async function POST(req: Request) {
     const student = await upsertStudent({ name, email, phone, country });
 
     // --- Create enrollment ---
-    const enrollment = await createEnrollment(student.id, course.id, batchId ?? null);
+    const enrollment = await createEnrollment(student.id, course.id, batchId ?? null, true, new Date());
 
     // --- Create Razorpay order ---
     const amountInPaise = Math.round(amount * 100);

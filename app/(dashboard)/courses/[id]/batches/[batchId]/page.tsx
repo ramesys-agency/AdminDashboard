@@ -42,6 +42,7 @@ type BatchDetail = {
   maxSeats: number | null;
   whatsappGroupUrl: string | null;
   pricing: Record<string, number>;
+  originalPricing?: Record<string, number>;
   course: { id: string; name: string; slug: string };
   enrollments: Array<{
     id: string;
@@ -188,9 +189,17 @@ export default function BatchDetailPage() {
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-tight">Pricing</p>
             </div>
             {Object.entries(batch.pricing).length > 0 ? (
-              Object.entries(batch.pricing).map(([currency, amount]) => (
-                <p key={currency} className="text-xl font-black ml-1">{sym(currency)}{amount.toLocaleString()}</p>
-              ))
+              Object.entries(batch.pricing).map(([currency, amount]) => {
+                const orig = batch.originalPricing?.[currency];
+                return (
+                  <div key={currency} className="flex items-baseline gap-2 ml-1">
+                    <p className="text-xl font-black">{sym(currency)}{amount.toLocaleString()}</p>
+                    {orig != null && (
+                      <p className="text-sm text-muted-foreground line-through">{sym(currency)}{orig.toLocaleString()}</p>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground ml-1 mt-1">Uses course price</p>
             )}

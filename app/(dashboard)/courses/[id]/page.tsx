@@ -48,6 +48,7 @@ type CourseBatch = {
   status: BatchStatus;
   whatsappGroupUrl: string | null;
   pricing: Record<string, number>;
+  originalPricing?: Record<string, number>;
   _count: { enrollments: number };
 };
 
@@ -83,6 +84,8 @@ const emptyBatchForm = {
   maxSeats: "",
   status: "UPCOMING" as BatchStatus,
   whatsappGroupUrl: "",
+  priceUSD: "",
+  originalPriceUSD: "",
 };
 
 export default function CourseDetailPage() {
@@ -133,6 +136,14 @@ export default function CourseDetailPage() {
     e.preventDefault();
     setBatchFormLoading(true);
     try {
+      const pricingPayload = [];
+      if (batchForm.priceUSD) {
+        pricingPayload.push({
+          currency: "USD",
+          amount: parseFloat(batchForm.priceUSD),
+          originalPrice: batchForm.originalPriceUSD ? parseFloat(batchForm.originalPriceUSD) : null,
+        });
+      }
       const payload = {
         name: batchForm.name,
         startDate: batchForm.startDate,
@@ -140,6 +151,7 @@ export default function CourseDetailPage() {
         maxSeats: batchForm.maxSeats ? parseInt(batchForm.maxSeats) : null,
         status: batchForm.status,
         whatsappGroupUrl: batchForm.whatsappGroupUrl || null,
+        pricing: pricingPayload,
       };
       if (editingBatchId) {
         await apiClient.put(`/vydhra/courses/${id}/batches/${editingBatchId}`, payload);
@@ -166,6 +178,8 @@ export default function CourseDetailPage() {
       maxSeats: batch.maxSeats?.toString() ?? "",
       status: batch.status,
       whatsappGroupUrl: batch.whatsappGroupUrl ?? "",
+      priceUSD: batch.pricing?.USD !== undefined ? batch.pricing.USD.toString() : "",
+      originalPriceUSD: batch.originalPricing?.USD !== undefined ? batch.originalPricing.USD.toString() : "",
     });
     setShowBatchForm(true);
   };
@@ -404,7 +418,7 @@ export default function CourseDetailPage() {
                       <TableCell className="px-6 py-4">
                         <Badge
                           variant={
-                            e.status === "ENROLLED" ? "default" : "secondary"
+                            ["ENROLLED", "PAID", "ACTIVE", "COMPLETED"].includes(e.status) ? "default" : "secondary"
                           }
                           className="rounded-full shadow-sm"
                         >
@@ -474,6 +488,14 @@ export default function CourseDetailPage() {
                       <option value="CANCELLED">Cancelled</option>
                     </select>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">USD Price (optional)</Label>
+                    <Input type="number" min="0" step="0.01" placeholder="Leave blank to use course price" value={batchForm.priceUSD} onChange={(e) => handleBatchFormChange("priceUSD", e.target.value)} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs font-semibold">Slashed USD Price (optional)</Label>
+                    <Input type="number" min="0" step="0.01" placeholder="Original price for display" value={batchForm.originalPriceUSD} onChange={(e) => handleBatchFormChange("originalPriceUSD", e.target.value)} />
+                  </div>
                   <div className="md:col-span-2 space-y-1">
                     <Label className="text-xs font-semibold">WhatsApp Group URL (optional)</Label>
                     <Input type="url" placeholder="https://chat.whatsapp.com/..." value={batchForm.whatsappGroupUrl} onChange={(e) => handleBatchFormChange("whatsappGroupUrl", e.target.value)} />
@@ -515,6 +537,7 @@ export default function CourseDetailPage() {
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">End</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Seats</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">WhatsApp</TableHead>
+                    <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider">Price</TableHead>
                     <TableHead className="px-4 py-4 font-bold text-slate-800 uppercase text-xs tracking-wider text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -535,6 +558,18 @@ export default function CourseDetailPage() {
                           ? <a href={b.whatsappGroupUrl} target="_blank" rel="noopener noreferrer" className="text-xs font-semibold text-emerald-600 hover:underline">Configured ↗</a>
                           : <span className="text-slate-400 text-xs">Not set</span>
                         }
+                      </TableCell>
+                      <TableCell className="px-4 py-4 text-slate-600">
+                        {b.pricing?.USD != null ? (
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold text-slate-900">${b.pricing.USD}</span>
+                            {b.originalPricing?.USD != null && (
+                              <span className="text-xs text-slate-400 line-through">${b.originalPricing.USD}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs italic">Uses course price</span>
+                        )}
                       </TableCell>
                       <TableCell className="px-4 py-4 text-right">
                         <div className="flex items-center gap-1 justify-end">
