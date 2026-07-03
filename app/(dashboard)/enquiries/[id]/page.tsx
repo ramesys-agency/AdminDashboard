@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { apiClient } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,21 +22,10 @@ type EnquiryDetail = {
 
 export default function EnquiryDetailPage() {
   const { id } = useParams();
-  const [enquiry, setEnquiry] = useState<EnquiryDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (id) {
-      setLoading(true);
-      // Try vydhra first
-      apiClient.get<EnquiryDetail>(`/vydhra/enquiries/${id}`)
-        .then(setEnquiry)
-        .catch((err) => {
-          toast.error("Failed to load enquiry.");
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [id]);
+  const { data: enquiry, isLoading: loading } = useApi<EnquiryDetail>(
+    id ? `/vydhra/enquiries/${id}` : null,
+    { onError: () => toast.error("Failed to load enquiry.") }
+  );
 
   if (loading) {
     return (

@@ -1,16 +1,15 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
+import { usePaginatedList } from "@/lib/use-api";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Plus } from "lucide-react";
-import { toast } from "sonner";
 
 type ProjectRow = {
   id: string;
@@ -37,36 +36,20 @@ function StatusBadge({ status }: { status: string }) {
 
 export default function ProjectsPage() {
   const { activeBusiness } = useBusiness();
-  const [data, setData] = useState<ProjectRow[]>([]);
-  const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-
-  const fetchData = useCallback(async (p: number, q: string, status: string) => {
-    if (activeBusiness !== "ramesys") return;
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({
-        page: p.toString(),
-        limit: "10",
-        ...(q && { q }),
-        ...(status !== "all" && { status }),
-      });
-      const res = await apiClient.get<PaginatedResponse<ProjectRow>>(`/ramesys/projects?${query}`);
-      setData(res.data);
-      setMetadata(res.metadata);
-    } catch {
-      toast.error("Failed to load projects. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeBusiness]);
-
-  useEffect(() => {
-    fetchData(page, search, statusFilter);
-  }, [page, search, statusFilter, fetchData]);
+  const {
+    data,
+    metadata,
+    loading,
+    refreshing,
+    setPage,
+    search,
+    setSearch,
+    filters,
+    setFilter,
+  } = usePaginatedList<ProjectRow>(
+    activeBusiness === "ramesys" ? "/ramesys/projects" : null,
+    { errorMessage: "Failed to load projects. Please try again." }
+  );
 
   const columns = [
     { header: "ID", accessor: "id" as const },
@@ -116,14 +99,14 @@ export default function ProjectsPage() {
       {activeBusiness === "ramesys" ? (
         <>
           <TableControls
-            onSearch={(val) => { setSearch(val); setPage(1); }}
+            onSearch={setSearch}
             searchValue={search}
             placeholder="Search projects..."
           >
             <select
               className={selectClass}
-              value={statusFilter}
-              onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
+              value={filters.status ?? "all"}
+              onChange={(e) => setFilter("status", e.target.value)}
             >
               <option value="all">All Status</option>
               <option value="PENDING">Pending</option>
@@ -138,6 +121,7 @@ export default function ProjectsPage() {
             metadata={metadata}
             onPageChange={setPage}
             loading={loading}
+            refreshing={refreshing}
           />
         </>
       ) : (

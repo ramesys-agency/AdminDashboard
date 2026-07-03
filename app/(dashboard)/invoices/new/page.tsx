@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { PaginatedResponse } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 
@@ -19,7 +20,6 @@ export default function NewInvoicePage() {
   const { activeBusiness } = useBusiness();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
 
   const [formData, setFormData] = useState({
     projectId: "",
@@ -29,20 +29,11 @@ export default function NewInvoicePage() {
     invoiceLink: "",
   });
 
-  useEffect(() => {
-    async function fetchProjects() {
-      if (activeBusiness !== "ramesys") return;
-      try {
-        const res = await apiClient.get<PaginatedResponse<Project>>(
-          "/ramesys/projects?limit=50",
-        );
-        setProjects(res.data);
-      } catch (err) {
-        toast.error("Failed to load projects for dropdown.");
-      }
-    }
-    fetchProjects();
-  }, [activeBusiness]);
+  const { data: projRes } = useApi<PaginatedResponse<Project>>(
+    activeBusiness === "ramesys" ? "/ramesys/projects?limit=50" : null,
+    { onError: () => toast.error("Failed to load projects for dropdown.") }
+  );
+  const projects = projRes?.data ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

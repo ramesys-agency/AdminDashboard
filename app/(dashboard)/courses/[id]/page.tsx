@@ -302,7 +302,7 @@ export default function CourseDetailPage() {
               </p>
             </div>
             <p className="text-3xl font-black mt-1 ml-1 text-emerald-700">
-              ${course.stats.totalRevenue.toLocaleString()}
+              ₹{course.stats.totalRevenue.toLocaleString('en-IN')}
             </p>
           </CardContent>
         </Card>
@@ -318,11 +318,11 @@ export default function CourseDetailPage() {
               </p>
             </div>
             <p className="text-3xl font-black mt-1 ml-1">
-              $
+              ₹
               {course.stats.totalEnrollments > 0
                 ? (
                     course.stats.totalRevenue / course.stats.totalEnrollments
-                  ).toLocaleString()
+                  ).toLocaleString('en-IN', { maximumFractionDigits: 0 })
                 : "0"}
             </p>
           </CardContent>

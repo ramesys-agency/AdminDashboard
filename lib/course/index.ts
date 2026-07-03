@@ -123,10 +123,16 @@ export async function getCourseById(id: string) {
       courseEnrollmentId: { in: enrollments.map((e) => e.id) },
       status: "COMPLETED",
     },
-    select: { amount: true },
+    select: { amount: true, currency: true, amountInINR: true },
   });
 
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const USD_TO_INR_FALLBACK = 85.0;
+  const totalRevenue = payments.reduce((sum, p) => {
+    const amountInINR =
+      p.amountInINR ??
+      (p.currency === "USD" ? p.amount * USD_TO_INR_FALLBACK : p.amount);
+    return sum + amountInINR;
+  }, 0);
 
   return {
     ...course,

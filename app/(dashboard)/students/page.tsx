@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
+import { usePaginatedList } from "@/lib/use-api";
 import { Button } from "@/components/ui/button";
 import { Eye, Plus } from "lucide-react";
-import { toast } from "sonner";
 
 type StudentRow = {
   id: string;
@@ -22,34 +21,11 @@ type StudentRow = {
 
 export default function StudentsPage() {
   const { activeBusiness } = useBusiness();
-  const [data, setData] = useState<StudentRow[]>([]);
-  const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-
-  const fetchData = useCallback(async (p: number, q: string) => {
-    if (activeBusiness !== "vydhra") return;
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({
-        page: p.toString(),
-        limit: "10",
-        ...(q && { q }),
-      });
-      const res = await apiClient.get<PaginatedResponse<StudentRow>>(`/vydhra/students?${query}`);
-      setData(res.data);
-      setMetadata(res.metadata);
-    } catch {
-      toast.error("Failed to load students. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeBusiness]);
-
-  useEffect(() => {
-    fetchData(page, search);
-  }, [page, search, fetchData]);
+  const { data, metadata, loading, refreshing, setPage, search, setSearch } =
+    usePaginatedList<StudentRow>(
+      activeBusiness === "vydhra" ? "/vydhra/students" : null,
+      { errorMessage: "Failed to load students. Please try again." }
+    );
 
   const columns = [
     { header: "ID", accessor: "id" as const },
@@ -69,11 +45,6 @@ export default function StudentsPage() {
     },
   ];
 
-  const handleSearch = (val: string) => {
-    setSearch(val);
-    setPage(1);
-  };
-
   return (
     <div className="max-w-6xl mx-auto pb-10">
       <PageHeader
@@ -92,7 +63,7 @@ export default function StudentsPage() {
       {activeBusiness === "vydhra" ? (
         <>
           <TableControls
-            onSearch={handleSearch}
+            onSearch={setSearch}
             searchValue={search}
             placeholder="Search students..."
           />
@@ -103,6 +74,7 @@ export default function StudentsPage() {
             metadata={metadata}
             onPageChange={setPage}
             loading={loading}
+            refreshing={refreshing}
           />
         </>
       ) : (

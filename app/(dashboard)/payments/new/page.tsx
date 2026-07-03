@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
-import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { PaginatedResponse } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,6 @@ export default function NewPaymentPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [generatedId, setGeneratedId] = useState("");
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
 
   const [formData, setFormData] = useState({
     amount: "",
@@ -36,26 +35,17 @@ export default function NewPaymentPage() {
     invoiceId: "",
   });
 
-  useEffect(() => {
-    async function fetchData() {
-      if (activeBusiness !== "ramesys") return;
-      try {
-        const [projRes, invRes] = await Promise.all([
-          apiClient.get<PaginatedResponse<Project>>(
-            "/ramesys/projects?limit=50",
-          ),
-          apiClient.get<PaginatedResponse<Invoice>>(
-            "/ramesys/invoices?limit=50",
-          ),
-        ]);
-        setProjects(projRes.data);
-        setInvoices(invRes.data);
-      } catch (err) {
-        toast.error("Failed to load data for dropdowns.");
-      }
-    }
-    fetchData();
-  }, [activeBusiness]);
+  const isRamesys = activeBusiness === "ramesys";
+  const { data: projRes } = useApi<PaginatedResponse<Project>>(
+    isRamesys ? "/ramesys/projects?limit=50" : null,
+    { onError: () => toast.error("Failed to load data for dropdowns.") }
+  );
+  const { data: invRes } = useApi<PaginatedResponse<Invoice>>(
+    isRamesys ? "/ramesys/invoices?limit=50" : null,
+    { onError: () => toast.error("Failed to load data for dropdowns.") }
+  );
+  const projects = projRes?.data ?? [];
+  const invoices = invRes?.data ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

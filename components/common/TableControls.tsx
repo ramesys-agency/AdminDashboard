@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 
@@ -15,6 +15,18 @@ export function TableControls({
   placeholder = "Search...",
   children,
 }: TableControlsProps) {
+  const [value, setValue] = useState(searchValue);
+  const onSearchRef = useRef(onSearch);
+  onSearchRef.current = onSearch;
+
+  // Debounce so we don't fire an API request per keystroke
+  useEffect(() => {
+    if (value === searchValue) return;
+    const timer = setTimeout(() => onSearchRef.current(value), 300);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   return (
     <div className="flex flex-col sm:flex-row items-center gap-3 mb-4">
       <div className="relative w-full sm:max-w-sm">
@@ -22,8 +34,8 @@ export function TableControls({
         <Input
           type="search"
           placeholder={placeholder}
-          defaultValue={searchValue}
-          onChange={(e) => onSearch(e.target.value)}
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
           className="pl-9 h-9 bg-background border-border/60 focus-visible:ring-primary/30"
         />
       </div>

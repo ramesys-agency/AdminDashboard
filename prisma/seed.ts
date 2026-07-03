@@ -98,6 +98,9 @@ async function main() {
   const courses: any[] = [];
   const batches: any[] = [];
   for (const course of coursesData) {
+    const priceUSD = (course as any).priceUSD ?? (course as any).price ?? 0;
+    const priceINR = (course as any).priceINR as number | undefined;
+
     const createdCourse = await prisma.course.upsert({
       where: { slug: course.slug },
       update: {
@@ -114,8 +117,20 @@ async function main() {
         pricing: {
           createMany: {
             data: [
-              { currency: "USD", amount: (course as any).priceUSD ?? (course as any).price ?? 0 },
-              ...(((course as any).priceINR) ? [{ currency: "INR", amount: (course as any).priceINR }] : []),
+              {
+                currency: "USD",
+                amount: priceUSD,
+                originalPrice: Math.round(priceUSD * 1.5),
+              },
+              ...(priceINR
+                ? [
+                    {
+                      currency: "INR",
+                      amount: priceINR,
+                      originalPrice: Math.round((priceINR * 1.5) / 1000) * 1000 - 1,
+                    },
+                  ]
+                : []),
             ],
           },
         },
@@ -123,7 +138,7 @@ async function main() {
     });
     courses.push(createdCourse);
 
-    // Create a default batch for each course
+    // Create a default batch for each course (with its own pricing)
     const createdBatch = await prisma.courseBatch.create({
       data: {
         courseId: createdCourse.id,
@@ -132,6 +147,27 @@ async function main() {
         endDate: new Date(Date.now() + 67 * 24 * 60 * 60 * 1000),
         maxSeats: 50,
         status: BatchStatus.UPCOMING,
+        whatsappGroupUrl: `https://chat.whatsapp.com/${course.slug}-cohort-1`,
+        pricing: {
+          createMany: {
+            data: [
+              {
+                currency: "USD",
+                amount: priceUSD,
+                originalPrice: Math.round(priceUSD * 1.5),
+              },
+              ...(priceINR
+                ? [
+                    {
+                      currency: "INR",
+                      amount: priceINR,
+                      originalPrice: Math.round((priceINR * 1.5) / 1000) * 1000 - 1,
+                    },
+                  ]
+                : []),
+            ],
+          },
+        },
       },
     });
     batches.push(createdBatch);
@@ -146,6 +182,7 @@ async function main() {
       name: "Rahul Khanna",
       email: "rahul.khanna@example.com",
       phone: "+91 90000 11111",
+      country: "IN",
     },
   });
 
@@ -155,6 +192,7 @@ async function main() {
       name: "Ananya Goyal",
       email: "ananya.g@example.com",
       phone: "+91 91111 22222",
+      country: "IN",
     },
   });
 
@@ -163,7 +201,8 @@ async function main() {
       businessId: vydhra.id,
       name: "Vikram Singh",
       email: "vikram.s@example.com",
-      phone: "+91 92222 33333",
+      phone: "+1 415 555 0133",
+      country: "US",
     },
   });
 
@@ -176,6 +215,8 @@ async function main() {
       courseId: courses[1].id, // MERN + AI
       batchId: batches[1].id, // MERN + AI Batch
       status: "ENROLLED",
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
     },
   });
 
@@ -185,6 +226,8 @@ async function main() {
       courseId: courses[1].id, // MERN + AI
       batchId: batches[1].id, // MERN + AI Batch
       status: "ENROLLED",
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
     },
   });
 
@@ -194,6 +237,8 @@ async function main() {
       courseId: courses[0].id, // AI Agents
       batchId: batches[0].id, // AI Agents Batch
       status: "ENROLLED",
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
     },
   });
 
@@ -203,6 +248,8 @@ async function main() {
       courseId: courses[4].id, // SQL
       batchId: batches[4].id, // SQL Batch
       status: "COMPLETED",
+      acceptedTerms: true,
+      acceptedTermsAt: new Date("2026-01-15"),
     },
   });
 
@@ -230,6 +277,7 @@ async function main() {
       businessId: vydhra.id,
       code: "RAVI10",
       maxUses: 100,
+      currentUses: 2, // matches the two seeded payments below
       discounts: {
         createMany: {
           data: [
@@ -262,10 +310,11 @@ async function main() {
       businessId: vydhra.id,
       code: "SANYA5",
       maxUses: 50,
+      currentUses: 1, // matches the one seeded payment below
       discounts: {
         createMany: {
           data: [
-            { currency: "USD", discountType: DiscountType.FLAT, discountValue: 1000 },
+            { currency: "USD", discountType: DiscountType.FLAT, discountValue: 100 },
             { currency: "INR", discountType: DiscountType.FLAT, discountValue: 5000 },
           ],
         },
@@ -294,11 +343,18 @@ async function main() {
       studentId: student1.id,
       invoiceId: inv1.id,
       amount: 40500,
+      currency: "INR",
+      amountInINR: 40500,
+      exchangeRate: 1.0,
       status: "COMPLETED",
       method: "UPI",
       agentId: agentRavi.id,
       couponId: couponRavi.id,
       courseEnrollmentId: enr1.id,
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
+      razorpayOrderId: "order_seed_0000000001",
+      razorpayPaymentId: "pay_seed_0000000001",
     },
   });
 
@@ -319,19 +375,26 @@ async function main() {
       studentId: student2.id,
       invoiceId: inv2.id,
       amount: 40500,
+      currency: "INR",
+      amountInINR: 40500,
+      exchangeRate: 1.0,
       status: "COMPLETED",
       method: "CARD",
       agentId: agentRavi.id,
       couponId: couponRavi.id,
       courseEnrollmentId: enr2.id,
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
+      razorpayOrderId: "order_seed_0000000002",
+      razorpayPaymentId: "pay_seed_0000000002",
     },
   });
 
-  // 3. Payment using Sanya's code (COMPLETED)
+  // 3. USD Payment using Sanya's code (COMPLETED) — exercises exchangeRate
   const inv3 = await prisma.invoice.create({
     data: {
       businessId: vydhra.id,
-      amount: 61750, // 65000 - 5%
+      amount: 499, // AI Agents $599 - $100 flat coupon
       status: "PAID",
       dueDate: new Date(),
       invoiceLink: "https://vydhra.com/inv/1003",
@@ -343,12 +406,19 @@ async function main() {
       businessId: vydhra.id,
       studentId: student3.id,
       invoiceId: inv3.id,
-      amount: 61750,
+      amount: 499,
+      currency: "USD",
+      amountInINR: 41666.5, // 499 * 83.5
+      exchangeRate: 83.5,
       status: "COMPLETED",
-      method: "BANK_TRANSFER",
+      method: "CARD",
       agentId: agentSanya.id,
       couponId: couponSanya.id,
       courseEnrollmentId: enr3.id,
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
+      razorpayOrderId: "order_seed_0000000003",
+      razorpayPaymentId: "pay_seed_0000000003",
     },
   });
 
@@ -369,6 +439,9 @@ async function main() {
       studentId: student1.id,
       invoiceId: inv4.id,
       amount: 10000, // Partial
+      currency: "INR",
+      amountInINR: 10000,
+      exchangeRate: 1.0,
       status: "PENDING",
       method: "UPI",
     },

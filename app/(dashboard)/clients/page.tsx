@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
 import Link from "next/link";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { TableControls } from "@/components/common/TableControls";
 import { useBusiness } from "@/context/BusinessContext";
-import { apiClient, PaginatedResponse, PaginationMetadata } from "@/lib/api-client";
+import { usePaginatedList } from "@/lib/use-api";
 import { Button } from "@/components/ui/button";
 import { Eye, Plus } from "lucide-react";
-import { toast } from "sonner";
 
 type ClientRow = {
   id: string;
@@ -23,34 +22,11 @@ type ClientRow = {
 
 export default function ClientsPage() {
   const { activeBusiness } = useBusiness();
-  const [data, setData] = useState<ClientRow[]>([]);
-  const [metadata, setMetadata] = useState<PaginationMetadata | undefined>();
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-
-  const fetchData = useCallback(async (p: number, q: string) => {
-    if (activeBusiness !== "ramesys") return;
-    setLoading(true);
-    try {
-      const query = new URLSearchParams({
-        page: p.toString(),
-        limit: "10",
-        ...(q && { q }),
-      });
-      const res = await apiClient.get<PaginatedResponse<ClientRow>>(`/ramesys/clients?${query}`);
-      setData(res.data);
-      setMetadata(res.metadata);
-    } catch {
-      toast.error("Failed to load clients. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [activeBusiness]);
-
-  useEffect(() => {
-    fetchData(page, search);
-  }, [page, search, fetchData]);
+  const { data, metadata, loading, refreshing, setPage, search, setSearch } =
+    usePaginatedList<ClientRow>(
+      activeBusiness === "ramesys" ? "/ramesys/clients" : null,
+      { errorMessage: "Failed to load clients. Please try again." }
+    );
 
   const columns = [
     { header: "ID", accessor: "id" as const },
@@ -88,7 +64,7 @@ export default function ClientsPage() {
       {activeBusiness === "ramesys" ? (
         <>
           <TableControls
-            onSearch={(val) => { setSearch(val); setPage(1); }}
+            onSearch={setSearch}
             searchValue={search}
             placeholder="Search by name, email or company..."
           />
@@ -99,6 +75,7 @@ export default function ClientsPage() {
             metadata={metadata}
             onPageChange={setPage}
             loading={loading}
+            refreshing={refreshing}
           />
         </>
       ) : (

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { apiClient } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import {
   Card,
   CardContent,
@@ -65,34 +66,16 @@ export default function AgentDetailPage() {
   const params = useParams();
   const id = params?.id as string;
 
-  const [agent, setAgent] = useState<AgentDetail | null>(null);
-  const [loading, setLoading] = useState(true);
   const [payoutAmount, setPayoutAmount] = useState("");
   const [updating, setUpdating] = useState(false);
 
-  // Use a ref to prevent double-fetching on mount in strict mode
-  const fetchedRef = React.useRef(false);
-
-  const fetchAgent = useCallback(async () => {
-    if (!id) return;
-
-    setLoading(true);
-    try {
-      const data = await apiClient.get<AgentDetail>(`/vydhra/agents/${id}`);
-      setAgent(data);
-    } catch (err) {
-      toast.error("Failed to load agent.");
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
-  useEffect(() => {
-    if (!fetchedRef.current) {
-      fetchAgent();
-      fetchedRef.current = true;
-    }
-  }, [id, fetchAgent]);
+  const {
+    data: agent,
+    isLoading: loading,
+    mutate,
+  } = useApi<AgentDetail>(id ? `/vydhra/agents/${id}` : null, {
+    onError: () => toast.error("Failed to load agent."),
+  });
 
   const handleUpdatePaid = async () => {
     const amount = parseFloat(payoutAmount);
@@ -112,7 +95,7 @@ export default function AgentDetailPage() {
         description: `Successfully updated paid amount by $${amount.toLocaleString()}`,
       });
       setPayoutAmount("");
-      fetchAgent(); // Refresh data
+      mutate(); // Refresh data
     } catch (error: unknown) {
       toast.error("Update Failed", {
         description:

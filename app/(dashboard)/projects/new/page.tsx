@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { EntityForm } from "@/components/common/EntityForm";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-import { apiClient, PaginatedResponse } from "@/lib/api-client";
+import { PaginatedResponse } from "@/lib/api-client";
+import { useApi } from "@/lib/use-api";
 import { toast } from "sonner";
 import { useBusiness } from "@/context/BusinessContext";
 
@@ -19,8 +20,6 @@ export default function NewProjectPage() {
   const { activeBusiness } = useBusiness();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [fetchingClients, setFetchingClients] = useState(true);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -32,22 +31,12 @@ export default function NewProjectPage() {
     endDate: "",
   });
 
-  useEffect(() => {
-    async function fetchClients() {
-      if (activeBusiness !== "ramesys") return;
-      try {
-        const res = await apiClient.get<PaginatedResponse<Client>>(
-          "/ramesys/clients?limit=100",
-        );
-        setClients(res.data);
-      } catch (err) {
-        toast.error("Failed to load clients for dropdown.");
-      } finally {
-        setFetchingClients(false);
-      }
-    }
-    fetchClients();
-  }, [activeBusiness]);
+  const { data: clientsRes, isLoading: fetchingClients } = useApi<
+    PaginatedResponse<Client>
+  >(activeBusiness === "ramesys" ? "/ramesys/clients?limit=100" : null, {
+    onError: () => toast.error("Failed to load clients for dropdown."),
+  });
+  const clients = clientsRes?.data ?? [];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

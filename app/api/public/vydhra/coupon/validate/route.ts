@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { getUsdToInrRate } from "@/lib/exchange";
 
 export async function POST(req: Request) {
   try {
@@ -37,23 +38,13 @@ export async function POST(req: Request) {
 
     let discount = coupon.discounts.find((d) => d.currency === currency.toUpperCase());
     let isINRConverted = false;
-    let exchangeRate = 83.5;
+    let exchangeRate = 1;
 
     if (!discount && currency.toUpperCase() === "INR") {
       discount = coupon.discounts.find((d) => d.currency === "USD");
       if (discount) {
         isINRConverted = true;
-        try {
-          const res = await fetch("https://open.er-api.com/v6/latest/USD");
-          if (res.ok) {
-            const data = await res.json();
-            if (data?.rates?.INR) {
-              exchangeRate = data.rates.INR;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to fetch exchange rate for coupon validation:", e);
-        }
+        exchangeRate = await getUsdToInrRate();
       }
     }
 

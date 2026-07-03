@@ -246,6 +246,8 @@ model Payment {
   businessId         String
   amount             Float
   currency           String            @default("USD")
+  amountInINR        Float?
+  exchangeRate       Float?
   status             String
   method             String?
   projectId          String?

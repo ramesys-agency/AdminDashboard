@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { sendEnrollmentConfirmationEmail } from "@/lib/email";
+import { getUsdToInrRate } from "@/lib/exchange";
 
 export type GetPaymentsParams = {
   page?: number;
@@ -78,20 +79,31 @@ import { incrementAgentEarnings } from "@/lib/agent";
 export async function updatePaymentStatus(id: string, status: string) {
   const payment = await prisma.payment.findUnique({
     where: { id },
-    select: { agentId: true, amount: true, status: true }
+    select: { agentId: true, amount: true, currency: true, status: true }
   });
 
   if (!payment) throw new Error("Payment not found");
 
   // If status is being changed to COMPLETED and it was not COMPLETED before
   if (status === "COMPLETED" && payment.status !== "COMPLETED" && payment.agentId) {
-    await incrementAgentEarnings(payment.agentId, payment.amount);
+    await incrementAgentEarnings(
+      payment.agentId,
+      await toUsd(payment.amount, payment.currency ?? "USD")
+    );
   }
 
   return prisma.payment.update({
     where: { id },
     data: { status }
   });
+}
+
+// Agent earnings (Agent.totalEarned) are tracked in USD — payments in other
+// currencies must be converted before incrementing.
+async function toUsd(amount: number, currency: string): Promise<number> {
+  if (currency.toUpperCase() !== "INR") return amount;
+  const rate = await getUsdToInrRate();
+  return Math.round((amount / rate) * 100) / 100;
 }
 
 export async function createPayment(data: {
@@ -119,6 +131,14 @@ export async function createPayment(data: {
   const amount = Number(data.amount);
   const currency = (data.currency ?? "USD").toUpperCase();
 
+  let exchangeRate = 1.0;
+  let amountInINR = amount;
+
+  if (currency === "USD") {
+    exchangeRate = await getUsdToInrRate();
+    amountInINR = amount * exchangeRate;
+  }
+
   return prisma.$transaction(async (tx) => {
     // Create invoice first
     const invoice = await tx.invoice.create({
@@ -137,6 +157,8 @@ export async function createPayment(data: {
         invoiceId: invoice.id,
         amount,
         currency,
+        amountInINR,
+        exchangeRate,
         status: data.status,
         method: data.method || "RAZORPAY",
         studentId: data.studentId,
@@ -229,9 +251,9 @@ export async function completePaymentAndEnrollment(params: {
     });
   }
 
-  // 5. Increment Agent Earnings
+  // 5. Increment Agent Earnings (tracked in USD)
   if (agentId) {
-    await incrementAgentEarnings(agentId, amount);
+    await incrementAgentEarnings(agentId, await toUsd(amount, currency));
   }
 
   // 6. Update enrollment status to PAID

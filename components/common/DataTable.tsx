@@ -23,6 +23,8 @@ interface DataTableProps<T> {
   metadata?: PaginationMetadata;
   onPageChange?: (page: number) => void;
   loading?: boolean;
+  /** New data is loading behind the currently visible rows */
+  refreshing?: boolean;
 }
 
 export function DataTable<T>({
@@ -32,6 +34,7 @@ export function DataTable<T>({
   metadata,
   onPageChange,
   loading,
+  refreshing,
 }: DataTableProps<T>) {
   if (loading) {
     return (
@@ -89,7 +92,11 @@ export function DataTable<T>({
 
   return (
     <div className="mt-4 rounded-xl border border-gray-200 overflow-hidden bg-white shadow-sm">
-      <div className="overflow-x-auto">
+      <div
+        className={`overflow-x-auto transition-opacity duration-150 ${
+          refreshing ? "opacity-50 pointer-events-none" : ""
+        }`}
+      >
         <Table>
           <TableHeader>
             <TableRow className="border-b border-gray-100 hover:bg-transparent bg-transparent">

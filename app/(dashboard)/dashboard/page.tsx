@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React from "react";
+import useSWR from "swr";
 import { PageHeader } from "@/components/common/PageHeader";
-import { useBusiness } from "@/context/BusinessContext";
+import { useBusiness, BusinessType } from "@/context/BusinessContext";
 import { apiClient, PaginatedResponse } from "@/lib/api-client";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -53,53 +54,49 @@ function StatCardItem({ label, value, icon: Icon, href, color, bgColor, loading 
   );
 }
 
+const count = (r: PromiseSettledResult<PaginatedResponse<unknown>>) =>
+  r.status === "fulfilled" ? r.value.metadata?.total ?? 0 : 0;
+
+async function fetchStats(business: BusinessType): Promise<Record<string, number>> {
+  if (business === "vydhra") {
+    const [students, courses, payments, enquiries, agents] = await Promise.allSettled([
+      apiClient.get<PaginatedResponse<unknown>>("/vydhra/students?limit=1"),
+      apiClient.get<PaginatedResponse<unknown>>("/vydhra/courses?limit=1"),
+      apiClient.get<PaginatedResponse<unknown>>("/vydhra/payments?limit=1&status=COMPLETED"),
+      apiClient.get<PaginatedResponse<unknown>>("/vydhra/enquiries?limit=1&status=NEW"),
+      apiClient.get<PaginatedResponse<unknown>>("/vydhra/agents?limit=1"),
+    ]);
+    return {
+      students: count(students),
+      courses: count(courses),
+      payments: count(payments),
+      enquiries: count(enquiries),
+      agents: count(agents),
+    };
+  }
+  const [clients, projects, activeProjects, payments, invoices] = await Promise.allSettled([
+    apiClient.get<PaginatedResponse<unknown>>("/ramesys/clients?limit=1"),
+    apiClient.get<PaginatedResponse<unknown>>("/ramesys/projects?limit=1"),
+    apiClient.get<PaginatedResponse<unknown>>("/ramesys/projects?limit=1&status=IN_PROGRESS"),
+    apiClient.get<PaginatedResponse<unknown>>("/ramesys/payments?limit=1&status=COMPLETED"),
+    apiClient.get<PaginatedResponse<unknown>>("/ramesys/invoices?limit=1&status=PENDING"),
+  ]);
+  return {
+    clients: count(clients),
+    projects: count(projects),
+    activeProjects: count(activeProjects),
+    payments: count(payments),
+    invoices: count(invoices),
+  };
+}
+
 export default function DashboardPage() {
   const { activeBusiness } = useBusiness();
-  const [stats, setStats] = useState<Record<string, number>>({});
-  const [loading, setLoading] = useState(true);
-
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    try {
-      if (activeBusiness === "vydhra") {
-        const [students, courses, payments, enquiries, agents] = await Promise.allSettled([
-          apiClient.get<PaginatedResponse<unknown>>("/vydhra/students?limit=1"),
-          apiClient.get<PaginatedResponse<unknown>>("/vydhra/courses?limit=1"),
-          apiClient.get<PaginatedResponse<unknown>>("/vydhra/payments?limit=1&status=COMPLETED"),
-          apiClient.get<PaginatedResponse<unknown>>("/vydhra/enquiries?limit=1&status=NEW"),
-          apiClient.get<PaginatedResponse<unknown>>("/vydhra/agents?limit=1"),
-        ]);
-        setStats({
-          students: students.status === "fulfilled" ? students.value.metadata?.total ?? 0 : 0,
-          courses: courses.status === "fulfilled" ? courses.value.metadata?.total ?? 0 : 0,
-          payments: payments.status === "fulfilled" ? payments.value.metadata?.total ?? 0 : 0,
-          enquiries: enquiries.status === "fulfilled" ? enquiries.value.metadata?.total ?? 0 : 0,
-          agents: agents.status === "fulfilled" ? agents.value.metadata?.total ?? 0 : 0,
-        });
-      } else {
-        const [clients, projects, activeProjects, payments, invoices] = await Promise.allSettled([
-          apiClient.get<PaginatedResponse<unknown>>("/ramesys/clients?limit=1"),
-          apiClient.get<PaginatedResponse<unknown>>("/ramesys/projects?limit=1"),
-          apiClient.get<PaginatedResponse<unknown>>("/ramesys/projects?limit=1&status=IN_PROGRESS"),
-          apiClient.get<PaginatedResponse<unknown>>("/ramesys/payments?limit=1&status=COMPLETED"),
-          apiClient.get<PaginatedResponse<unknown>>("/ramesys/invoices?limit=1&status=PENDING"),
-        ]);
-        setStats({
-          clients: clients.status === "fulfilled" ? clients.value.metadata?.total ?? 0 : 0,
-          projects: projects.status === "fulfilled" ? projects.value.metadata?.total ?? 0 : 0,
-          activeProjects: activeProjects.status === "fulfilled" ? activeProjects.value.metadata?.total ?? 0 : 0,
-          payments: payments.status === "fulfilled" ? payments.value.metadata?.total ?? 0 : 0,
-          invoices: invoices.status === "fulfilled" ? invoices.value.metadata?.total ?? 0 : 0,
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [activeBusiness]);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+  const { data: stats = {}, isLoading: loading } = useSWR(
+    `dashboard-stats:${activeBusiness}`,
+    () => fetchStats(activeBusiness),
+    { revalidateOnFocus: false, dedupingInterval: 5000 }
+  );
 
   const vydhraCards: StatCard[] = [
     { label: "Total Students", value: stats.students ?? 0, icon: Users, href: "/students", color: "text-blue-600", bgColor: "bg-blue-100 dark:bg-blue-900/30", loading },
