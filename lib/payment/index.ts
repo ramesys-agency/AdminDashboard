@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { sendEnrollmentConfirmationEmail } from "@/lib/email";
+import { sendEnrollmentConfirmationEmail, sendReferralEarningEmail } from "@/lib/email";
 import { getUsdToInrRate } from "@/lib/exchange";
 
 export type GetPaymentsParams = {
@@ -75,21 +75,91 @@ export async function getPaymentById(id: string) {
 }
 
 import { incrementAgentEarnings } from "@/lib/agent";
+import { incrementStudentReferralEarnings } from "@/lib/referral";
+
+type EarningCredit = {
+  commission: number;
+  totalEarned: number;
+  name: string;
+  email: string;
+  code: string | null;
+  recipientType: "agent" | "student";
+};
+
+/**
+ * Fire-and-forget referral earning notifications to the agent and/or
+ * referring student credited for a completed payment. Never throws —
+ * email failures must not break payment processing.
+ */
+function notifyReferralEarnings(params: {
+  credits: Array<EarningCredit | null>;
+  buyerName: string | null | undefined;
+  courseName: string | null | undefined;
+  saleAmount: number;
+  saleCurrency: string;
+  paidAt: Date;
+}) {
+  for (const credit of params.credits) {
+    if (!credit || !credit.email || credit.commission <= 0) continue;
+    sendReferralEarningEmail({
+      recipientName: credit.name,
+      recipientEmail: credit.email,
+      recipientType: credit.recipientType,
+      referralCode: credit.code ?? "—",
+      buyerName: params.buyerName || "A student",
+      courseName: params.courseName || "a Vydhra course",
+      saleAmount: params.saleAmount,
+      saleCurrency: params.saleCurrency,
+      earningAmount: credit.commission,
+      totalEarned: credit.totalEarned,
+      paidAt: params.paidAt,
+    }).catch((err) =>
+      console.error("[Email] Failed to send referral earning email:", err),
+    );
+  }
+}
 
 export async function updatePaymentStatus(id: string, status: string) {
   const payment = await prisma.payment.findUnique({
     where: { id },
-    select: { agentId: true, amount: true, currency: true, status: true }
+    select: {
+      agentId: true,
+      referrerStudentId: true,
+      amount: true,
+      currency: true,
+      status: true,
+      createdAt: true,
+      student: { select: { name: true } },
+      courseEnrollment: { select: { course: { select: { name: true } } } },
+    }
   });
 
   if (!payment) throw new Error("Payment not found");
 
   // If status is being changed to COMPLETED and it was not COMPLETED before
-  if (status === "COMPLETED" && payment.status !== "COMPLETED" && payment.agentId) {
-    await incrementAgentEarnings(
-      payment.agentId,
-      await toUsd(payment.amount, payment.currency ?? "USD")
-    );
+  if (status === "COMPLETED" && payment.status !== "COMPLETED") {
+    const amountUsd = await toUsd(payment.amount, payment.currency ?? "USD");
+
+    let agentCredit = null;
+    let studentCredit = null;
+    if (payment.agentId) {
+      agentCredit = await incrementAgentEarnings(payment.agentId, amountUsd);
+    }
+    if (payment.referrerStudentId) {
+      studentCredit = await incrementStudentReferralEarnings(payment.referrerStudentId, amountUsd);
+    }
+
+    notifyReferralEarnings({
+      credits: [
+        agentCredit && { ...agentCredit, recipientType: "agent" as const },
+        studentCredit && { ...studentCredit, recipientType: "student" as const },
+      ],
+      buyerName: payment.student?.name,
+      courseName: payment.courseEnrollment?.course?.name,
+      saleAmount: payment.amount,
+      saleCurrency: payment.currency ?? "USD",
+      paidAt: payment.createdAt,
+    });
   }
 
   return prisma.payment.update({
@@ -115,6 +185,7 @@ export async function createPayment(data: {
   courseEnrollmentId?: string;
   couponId?: string;
   agentId?: string;
+  referrerStudentId?: string;
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
@@ -165,6 +236,7 @@ export async function createPayment(data: {
         courseEnrollmentId: data.courseEnrollmentId || null,
         couponId: data.couponId || null,
         agentId: data.agentId || null,
+        referrerStudentId: data.referrerStudentId || null,
         razorpayOrderId: data.razorpayOrderId || null,
         razorpayPaymentId: data.razorpayPaymentId || null,
         razorpaySignature: data.razorpaySignature || null,
@@ -182,6 +254,7 @@ export async function completePaymentAndEnrollment(params: {
   enrollmentId: string;
   courseId?: string | null;
   couponId?: string | null;
+  referrerStudentId?: string | null;
   razorpayOrderId: string;
   razorpayPaymentId: string;
   razorpaySignature: string;
@@ -226,6 +299,19 @@ export async function completePaymentAndEnrollment(params: {
     }
   }
 
+  // Resolve the referring student (student referral program). Self-referrals
+  // and unknown ids are dropped silently — the enrollment must still complete.
+  let referrerStudentId: string | null = null;
+  if (params.referrerStudentId && params.referrerStudentId !== studentId) {
+    const referrer = await prisma.student.findUnique({
+      where: { id: params.referrerStudentId },
+      select: { id: true },
+    });
+    if (referrer) {
+      referrerStudentId = referrer.id;
+    }
+  }
+
   // 3. Create payment record
   const payment = await createPayment({
     amount,
@@ -236,6 +322,7 @@ export async function completePaymentAndEnrollment(params: {
     courseEnrollmentId: enrollmentId,
     couponId: couponId ?? undefined,
     agentId: agentId ?? undefined,
+    referrerStudentId: referrerStudentId ?? undefined,
     razorpayOrderId,
     razorpayPaymentId,
     razorpaySignature,
@@ -251,9 +338,17 @@ export async function completePaymentAndEnrollment(params: {
     });
   }
 
-  // 5. Increment Agent Earnings (tracked in USD)
+  // 5. Increment referrer earnings (tracked in USD)
+  let agentCredit = null;
+  let studentCredit = null;
   if (agentId) {
-    await incrementAgentEarnings(agentId, await toUsd(amount, currency));
+    agentCredit = await incrementAgentEarnings(agentId, await toUsd(amount, currency));
+  }
+  if (referrerStudentId) {
+    studentCredit = await incrementStudentReferralEarnings(
+      referrerStudentId,
+      await toUsd(amount, currency),
+    );
   }
 
   // 6. Update enrollment status to PAID
@@ -299,6 +394,19 @@ export async function completePaymentAndEnrollment(params: {
       whatsappGroupUrl: enrollmentData?.batch?.whatsappGroupUrl ?? null,
     }).catch((err) => console.error("[Email] Failed to send enrollment email:", err));
   }
+
+  // 8. Notify the agent / referring student about their earning
+  notifyReferralEarnings({
+    credits: [
+      agentCredit && { ...agentCredit, recipientType: "agent" as const },
+      studentCredit && { ...studentCredit, recipientType: "student" as const },
+    ],
+    buyerName: studentData?.name,
+    courseName: courseData?.name,
+    saleAmount: amount,
+    saleCurrency: currency,
+    paidAt: payment.createdAt,
+  });
 
   return {
     success: true,

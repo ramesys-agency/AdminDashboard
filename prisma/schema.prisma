@@ -18,22 +18,23 @@ model AdminUser {
 }
 
 model Business {
-  id        String       @id @default(cuid())
-  name      String       @unique
-  type      BusinessType
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
-  createdBy String?
-  updatedBy String?
-  agents    Agent[]
-  clients   Client[]
-  coupons   Coupon[]
-  courses   Course[]
-  enquiries Enquiry[]
-  invoices  Invoice[]
-  payments  Payment[]
-  projects  Project[]
-  students  Student[]
+  id               String            @id @default(cuid())
+  name             String            @unique
+  type             BusinessType
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  agents           Agent[]
+  clients          Client[]
+  coupons          Coupon[]
+  courses          Course[]
+  enquiries        Enquiry[]
+  invoices         Invoice[]
+  payments         Payment[]
+  projects         Project[]
+  students         Student[]
+  referralSettings ReferralSettings?
 }
 
 model Client {
@@ -89,19 +90,29 @@ model Invoice {
 }
 
 model Student {
-  id          String             @id @default(cuid())
-  businessId  String
-  name        String
-  email       String             @unique
-  phone       String?
-  country     String?
-  createdAt   DateTime           @default(now())
-  updatedAt   DateTime           @updatedAt
-  createdBy   String?
-  updatedBy   String?
-  enrollments CourseEnrollment[]
-  payments    Payment[]
-  business    Business           @relation(fields: [businessId], references: [id])
+  id               String             @id @default(cuid())
+  businessId       String
+  name             String
+  email            String             @unique
+  phone            String?
+  country          String?
+  // Student referral program: null override fields fall back to ReferralSettings
+  referralCode     String?            @unique
+  discountType     DiscountType?
+  discountValue    Float?
+  commissionType   CommissionType?
+  commissionValue  Float?
+  totalEarned      Float              @default(0)
+  totalPaid        Float              @default(0)
+  additionalAmount Float              @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  enrollments      CourseEnrollment[]
+  payments         Payment[]          @relation("StudentPayments")
+  referredPayments Payment[]          @relation("ReferrerStudentPayments")
+  business         Business           @relation(fields: [businessId], references: [id])
 }
 
 model Course {
@@ -256,6 +267,7 @@ model Payment {
   courseEnrollmentId String?
   agentId            String?
   couponId           String?
+  referrerStudentId  String?
   razorpayOrderId    String?
   razorpayPaymentId  String?
   razorpaySignature  String?
@@ -270,8 +282,29 @@ model Payment {
   coupon             Coupon?           @relation(fields: [couponId], references: [id])
   invoice            Invoice?          @relation(fields: [invoiceId], references: [id])
   project            Project?          @relation(fields: [projectId], references: [id])
-  student            Student?          @relation(fields: [studentId], references: [id])
+  student            Student?          @relation("StudentPayments", fields: [studentId], references: [id])
+  referrerStudent    Student?          @relation("ReferrerStudentPayments", fields: [referrerStudentId], references: [id])
   courseEnrollment   CourseEnrollment? @relation(fields: [courseEnrollmentId], references: [id])
+}
+
+model ReferralSettings {
+  id                     String         @id @default(cuid())
+  businessId             String         @unique
+  // Student referral program (defaults; per-student overrides live on Student)
+  studentReferralEnabled Boolean        @default(true)
+  studentDiscountType    DiscountType   @default(PERCENTAGE)
+  studentDiscountValue   Float          @default(10)
+  studentCommissionType  CommissionType @default(PERCENTAGE)
+  studentCommissionValue Float          @default(10)
+  // Defaults applied when creating new agents (per-agent values live on Agent/Coupon)
+  agentDiscountType      DiscountType   @default(PERCENTAGE)
+  agentDiscountValue     Float          @default(10)
+  agentCommissionType    CommissionType @default(PERCENTAGE)
+  agentCommissionValue   Float          @default(10)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  updatedBy              String?
+  business               Business       @relation(fields: [businessId], references: [id])
 }
 
 enum BusinessType {

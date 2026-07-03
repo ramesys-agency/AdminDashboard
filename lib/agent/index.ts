@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { getReferralSettings } from "@/lib/referral";
 
 export type GetAgentsParams = {
   page?: number;
@@ -98,27 +99,46 @@ export async function updateAgentStatistics(
   });
 }
 
+/**
+ * Credits commission for a completed payment (paymentAmount in USD).
+ * Returns the credit details so callers can notify the agent.
+ */
 export async function incrementAgentEarnings(
   agentId: string,
   paymentAmount: number,
 ) {
   const agent = await prisma.agent.findUnique({
     where: { id: agentId },
-    select: { commissionType: true, commissionValue: true },
+    select: {
+      name: true,
+      email: true,
+      code: true,
+      commissionType: true,
+      commissionValue: true,
+    },
   });
-  if (!agent) return;
+  if (!agent) return null;
 
   const commission =
     agent.commissionType === "PERCENTAGE"
       ? (paymentAmount * (agent.commissionValue || 0)) / 100
       : agent.commissionValue || 0;
 
-  return prisma.agent.update({
+  const updated = await prisma.agent.update({
     where: { id: agentId },
     data: {
       totalEarned: { increment: commission },
     },
+    select: { totalEarned: true },
   });
+
+  return {
+    commission,
+    totalEarned: updated.totalEarned,
+    name: agent.name,
+    email: agent.email,
+    code: agent.code,
+  };
 }
 
 export async function createAgent(data: {
@@ -126,8 +146,10 @@ export async function createAgent(data: {
   email: string;
   phone?: string | null;
   code: string;
-  commissionType: "PERCENTAGE" | "FLAT";
-  commissionValue: number;
+  commissionType?: "PERCENTAGE" | "FLAT";
+  commissionValue?: number;
+  discountType?: "PERCENTAGE" | "FLAT";
+  discountValue?: number;
 }) {
   const vydhra = await prisma.business.findFirst({
     where: { type: "COURSE_SELLING" },
@@ -136,11 +158,24 @@ export async function createAgent(data: {
 
   if (!vydhra) throw new Error("Vydhra business not found");
 
+  // Fall back to the configured agent defaults for anything not provided
+  const settings = await getReferralSettings();
+
+  const commissionType = data.commissionType ?? settings.agentCommissionType;
+  const commissionValue = data.commissionValue ?? settings.agentCommissionValue;
+  const discountType = data.discountType ?? settings.agentDiscountType;
+  const discountValue = data.discountValue ?? settings.agentDiscountValue;
+
   return prisma.$transaction(async (tx) => {
     // Create the Agent
     const agent = await tx.agent.create({
       data: {
-        ...data,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        code: data.code,
+        commissionType,
+        commissionValue,
         businessId: vydhra.id,
       },
     });
@@ -153,8 +188,8 @@ export async function createAgent(data: {
         discounts: {
           create: {
             currency: "USD",
-            discountType: data.commissionType as "PERCENTAGE" | "FLAT",
-            discountValue: data.commissionValue,
+            discountType,
+            discountValue,
           },
         },
       },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { completePaymentAndEnrollment } from "@/lib/payment";
+import { ensureStudentReferralCode, getReferralSettings } from "@/lib/referral";
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
@@ -19,6 +20,7 @@ export async function POST(req: Request) {
       enrollmentId,
       courseId,
       couponId,
+      referrerStudentId,
     } = body;
 
     // --- Validate required fields ---
@@ -72,10 +74,36 @@ export async function POST(req: Request) {
       enrollmentId,
       courseId,
       couponId,
+      referrerStudentId: referrerStudentId || null,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,
     });
+
+    // Give the enrolled student their own referral code so the success page
+    // can invite them to refer friends (best-effort — never block the receipt)
+    let referral: {
+      code: string;
+      discountType: string;
+      discountValue: number;
+      commissionType: string;
+      commissionValue: number;
+    } | null = null;
+    try {
+      const settings = await getReferralSettings();
+      if (settings.studentReferralEnabled) {
+        const code = await ensureStudentReferralCode(studentId);
+        referral = {
+          code,
+          discountType: settings.studentDiscountType,
+          discountValue: settings.studentDiscountValue,
+          commissionType: settings.studentCommissionType,
+          commissionValue: settings.studentCommissionValue,
+        };
+      }
+    } catch (err) {
+      console.error("[PUBLIC /payment/verify] Referral code generation failed:", err);
+    }
 
     return NextResponse.json({
       success: true,
@@ -86,6 +114,7 @@ export async function POST(req: Request) {
       student: result.student,
       course: result.course,
       paidAt: result.payment.createdAt,
+      referral,
     });
   } catch (error: unknown) {
     console.error("[PUBLIC /payment/verify] Error:", error);

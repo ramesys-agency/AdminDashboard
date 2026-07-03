@@ -14,6 +14,7 @@ import {
   Briefcase,
   UserCircle,
   Loader2,
+  Settings,
 } from "lucide-react";
 
 const vydhraLinks = [
@@ -25,6 +26,7 @@ const vydhraLinks = [
   { name: "Payments", href: "/payments", icon: CreditCard },
   { name: "Coupons", href: "/coupons", icon: Ticket },
   { name: "Enquiries", href: "/enquiries", icon: MessageSquare },
+  { name: "Referral Settings", href: "/referral-settings", icon: Settings },
 ];
 
 const ramesysLinks = [

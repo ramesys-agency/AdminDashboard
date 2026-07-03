@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { ensureStudentReferralCode } from "@/lib/referral";
 
 export type GetStudentsParams = {
   page?: number;
@@ -46,6 +47,9 @@ export async function getStudents({ page = 1, limit = 10, search }: GetStudentsP
 }
 
 export async function getStudentById(id: string) {
+  // Every student gets a referral code lazily on first view
+  await ensureStudentReferralCode(id).catch(() => null);
+
   return prisma.student.findUnique({
     where: { id },
     include: {
@@ -60,6 +64,17 @@ export async function getStudentById(id: string) {
         orderBy: { createdAt: "desc" },
       },
       payments: {
+        orderBy: { createdAt: "desc" },
+      },
+      referredPayments: {
+        include: {
+          student: { select: { name: true, email: true } },
+          courseEnrollment: {
+            include: {
+              course: { select: { name: true } },
+            },
+          },
+        },
         orderBy: { createdAt: "desc" },
       },
     },

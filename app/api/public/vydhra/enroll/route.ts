@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { upsertStudent, createEnrollment } from "@/lib/student";
 import prisma from "@/lib/prisma";
 import { getUsdToInrRate, resolvePrice } from "@/lib/exchange";
+import { resolveStudentReferral } from "@/lib/referral";
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
@@ -123,8 +124,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Resolve and apply coupon if provided ---
+    // --- Resolve and apply coupon or student referral code if provided ---
     let coupon: { id: string } | null = null;
+    let referrerStudentId: string | null = null;
     let discountAmount = 0;
     if (couponCode) {
       const dbCoupon = await prisma.coupon.findFirst({
@@ -136,40 +138,64 @@ export async function POST(req: Request) {
         include: { discounts: true },
       });
 
-      if (!dbCoupon) {
-        return NextResponse.json({ error: "Invalid or expired coupon code" }, { status: 400 });
-      }
+      if (dbCoupon) {
+        if (dbCoupon.maxUses !== null && dbCoupon.currentUses >= dbCoupon.maxUses) {
+          return NextResponse.json(
+            { error: "This coupon has reached its usage limit" },
+            { status: 400 }
+          );
+        }
 
-      if (dbCoupon.maxUses !== null && dbCoupon.currentUses >= dbCoupon.maxUses) {
-        return NextResponse.json(
-          { error: "This coupon has reached its usage limit" },
-          { status: 400 }
-        );
-      }
+        let discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === currency);
+        let flatNeedsConversion = false;
+        if (!discount && currency === "INR") {
+          discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === "USD");
+          flatNeedsConversion = !!discount;
+        }
 
-      let discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === currency);
-      let flatNeedsConversion = false;
-      if (!discount && currency === "INR") {
-        discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === "USD");
-        flatNeedsConversion = !!discount;
-      }
+        if (!discount) {
+          return NextResponse.json(
+            { error: `This coupon is not available in ${currency}` },
+            { status: 400 }
+          );
+        }
 
-      if (!discount) {
-        return NextResponse.json(
-          { error: `This coupon is not available in ${currency}` },
-          { status: 400 }
-        );
-      }
+        if (discount.discountType === "PERCENTAGE") {
+          discountAmount = (basePrice * discount.discountValue) / 100;
+        } else {
+          discountAmount = flatNeedsConversion
+            ? discount.discountValue * usdToInrRate
+            : discount.discountValue;
+        }
 
-      if (discount.discountType === "PERCENTAGE") {
-        discountAmount = (basePrice * discount.discountValue) / 100;
+        coupon = { id: dbCoupon.id };
       } else {
-        discountAmount = flatNeedsConversion
-          ? discount.discountValue * usdToInrRate
-          : discount.discountValue;
-      }
+        // Not a coupon — try to resolve as a student referral code
+        const referral = await resolveStudentReferral(String(couponCode));
 
-      coupon = { id: dbCoupon.id };
+        if (!referral) {
+          return NextResponse.json({ error: "Invalid or expired coupon code" }, { status: 400 });
+        }
+
+        if (String(email).toLowerCase().trim() === referral.student.email.toLowerCase()) {
+          return NextResponse.json(
+            { error: "You cannot use your own referral code" },
+            { status: 400 }
+          );
+        }
+
+        // FLAT student referral discounts are denominated in USD
+        if (referral.discountType === "PERCENTAGE") {
+          discountAmount = (basePrice * referral.discountValue) / 100;
+        } else {
+          discountAmount =
+            currency === "INR"
+              ? referral.discountValue * usdToInrRate
+              : referral.discountValue;
+        }
+
+        referrerStudentId = referral.student.id;
+      }
     }
 
     const subtotal = Math.max(0, basePrice - discountAmount);
@@ -207,6 +233,7 @@ export async function POST(req: Request) {
         enrollmentId: enrollment.id,
         batchId: batch?.id ?? "",
         couponId: coupon?.id ?? "",
+        referrerStudentId: referrerStudentId ?? "",
       },
     });
 
@@ -223,6 +250,7 @@ export async function POST(req: Request) {
       courseId: course.id,
       batchId: batch?.id ?? null,
       couponId: coupon?.id ?? null,
+      referrerStudentId: referrerStudentId ?? null,
     });
   } catch (error: unknown) {
     console.error("[PUBLIC /enroll] Error:", error);

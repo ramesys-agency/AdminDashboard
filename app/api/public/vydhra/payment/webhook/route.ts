@@ -46,7 +46,7 @@ export async function POST(req: Request) {
         notes,
       } = paymentEntity;
 
-      const { studentId, enrollmentId, courseId, couponId } = notes || {};
+      const { studentId, enrollmentId, courseId, couponId, referrerStudentId } = notes || {};
 
       if (!studentId || !enrollmentId) {
         console.error("[Razorpay Webhook] Missing studentId or enrollmentId in payment notes:", notes);
@@ -67,6 +67,7 @@ export async function POST(req: Request) {
         enrollmentId,
         courseId: courseId || null,
         couponId: couponId || null,
+        referrerStudentId: referrerStudentId || null,
         razorpayOrderId: razorpayOrderId || "",
         razorpayPaymentId,
         razorpaySignature: signature || "webhook",

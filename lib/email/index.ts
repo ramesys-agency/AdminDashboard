@@ -147,6 +147,144 @@ export async function sendEnrollmentConfirmationEmail(data: EnrollmentEmailData)
   });
 }
 
+export interface ReferralEarningEmailData {
+  recipientName: string;
+  recipientEmail: string;
+  recipientType: "agent" | "student";
+  referralCode: string;
+  buyerName: string;
+  courseName: string;
+  saleAmount: number;
+  saleCurrency: string;
+  /** Credited earning in USD (earnings are tracked in USD) */
+  earningAmount: number;
+  /** Lifetime earnings in USD after this credit */
+  totalEarned: number;
+  paidAt: Date;
+}
+
+export async function sendReferralEarningEmail(data: ReferralEarningEmailData) {
+  const saleSymbol = currencySymbolFor(data.saleCurrency);
+  const earning = data.earningAmount.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const totalEarned = data.totalEarned.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const paidDate = new Date(data.paidAt).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+
+  const payoutNote =
+    data.recipientType === "agent"
+      ? "Your earnings are settled by the Vydhra team as per your payout schedule."
+      : "Your referral earnings are tracked by the Vydhra team and paid out periodically. Reply to this email for any payout questions.";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Referral Reward Earned – Vydhra</title>
+</head>
+<body style="margin: 0; padding: 0; background: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background: #f9fafb; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); border-radius: 16px 16px 0 0; padding: 40px 32px; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 28px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">VYDHRA</p>
+              <div style="display: inline-block; background: rgba(255,255,255,0.2); border-radius: 100px; padding: 6px 20px; margin-top: 8px;">
+                <p style="margin: 0; font-size: 12px; font-weight: 700; color: #ffffff; text-transform: uppercase; letter-spacing: 0.1em;">🎁 Referral Reward Earned</p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background: #ffffff; padding: 40px 32px;">
+              <h1 style="margin: 0 0 8px 0; font-size: 26px; font-weight: 800; color: #111827;">You just earned $${earning}, ${data.recipientName}! 🎉</h1>
+              <p style="margin: 0 0 32px 0; font-size: 15px; color: #6b7280; line-height: 1.6;">
+                <strong style="color: #111827;">${data.buyerName}</strong> enrolled in
+                <strong style="color: #111827;">${data.courseName}</strong> using your referral code
+                <strong style="color: #ea580c; font-family: monospace;">${data.referralCode}</strong>.
+              </p>
+
+              <!-- Referral Details -->
+              <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 32px;">
+                <p style="margin: 0 0 16px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em;">Referral Details</p>
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Enrolled By</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; text-align: right;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${data.buyerName}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Course</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; text-align: right;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${data.courseName}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Referral Code Used</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; text-align: right;"><span style="font-size: 12px; color: #6b7280; font-family: monospace;">${data.referralCode}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Purchase Amount</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; text-align: right;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${saleSymbol}${data.saleAmount.toLocaleString("en-US")}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Purchase Date</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; text-align: right;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${paidDate}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 14px 0 0 0;"><span style="font-size: 14px; color: #111827; font-weight: 700;">Your Earning</span></td>
+                    <td style="padding: 14px 0 0 0; text-align: right;"><span style="font-size: 22px; color: #ea580c; font-weight: 900;">+$${earning}</span></td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Total earned banner -->
+              <div style="background: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 16px 24px; margin-bottom: 32px; text-align: center;">
+                <p style="margin: 0; font-size: 13px; color: #374151;">
+                  Total referral earnings to date:
+                  <strong style="color: #16a34a; font-size: 16px;">$${totalEarned}</strong>
+                </p>
+              </div>
+
+              <p style="margin: 0 0 16px 0; font-size: 14px; color: #6b7280; line-height: 1.6;">${payoutNote}</p>
+              <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
+                Keep sharing your code <strong style="color: #ea580c; font-family: monospace;">${data.referralCode}</strong> to earn more!
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background: #f9fafb; border-radius: 0 0 16px 16px; padding: 24px 32px; text-align: center; border-top: 1px solid #f3f4f6;">
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">© ${new Date().getFullYear()} Vydhra. All rights reserved.</p>
+              <p style="margin: 4px 0 0 0; font-size: 12px; color: #9ca3af;">Questions? Reach us at <a href="mailto:support@vydhra.com" style="color: #ea580c; text-decoration: none;">support@vydhra.com</a></p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  await transporter.sendMail({
+    from: `"Vydhra" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    to: data.recipientEmail,
+    subject: `You earned $${earning} – ${data.buyerName} enrolled with your referral code`,
+    html,
+  });
+}
+
 export interface ContactEmailData {
   name: string;
   email: string;
