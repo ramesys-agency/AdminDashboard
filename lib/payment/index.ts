@@ -75,7 +75,16 @@ export async function getPaymentById(id: string) {
 }
 
 import { incrementAgentEarnings } from "@/lib/agent";
-import { incrementStudentReferralEarnings } from "@/lib/referral";
+import {
+  incrementStudentReferralEarnings,
+  ensureStudentReferralCode,
+  getReferralSettings,
+} from "@/lib/referral";
+
+// FLAT referral rates are denominated in USD (see lib/referral).
+function formatReferralRate(type: "PERCENTAGE" | "FLAT", value: number): string {
+  return type === "PERCENTAGE" ? `${value}%` : `$${value}`;
+}
 
 type EarningCredit = {
   commission: number;
@@ -273,7 +282,8 @@ export async function completePaymentAndEnrollment(params: {
     method = "RAZORPAY",
   } = params;
 
-  // 1. Prevent duplicate processing
+  // 1. Prevent duplicate processing (fast path; the unique constraint on
+  // razorpayPaymentId is the real guard — see the P2002 catch below)
   const existingPayment = await prisma.payment.findFirst({
     where: { razorpayPaymentId },
   });
@@ -312,23 +322,40 @@ export async function completePaymentAndEnrollment(params: {
     }
   }
 
-  // 3. Create payment record
-  const payment = await createPayment({
-    amount,
-    currency,
-    status: "COMPLETED",
-    method,
-    studentId,
-    courseEnrollmentId: enrollmentId,
-    couponId: couponId ?? undefined,
-    agentId: agentId ?? undefined,
-    referrerStudentId: referrerStudentId ?? undefined,
-    razorpayOrderId,
-    razorpayPaymentId,
-    razorpaySignature,
-    acceptedTerms: true,
-    acceptedTermsAt: new Date(),
-  });
+  // 3. Create payment record. If the client's verify call and the Razorpay
+  // webhook race past the findFirst check above, the unique constraint on
+  // razorpayPaymentId makes the loser land here — treat it as already
+  // processed instead of double-crediting earnings.
+  let payment;
+  try {
+    payment = await createPayment({
+      amount,
+      currency,
+      status: "COMPLETED",
+      method,
+      studentId,
+      courseEnrollmentId: enrollmentId,
+      couponId: couponId ?? undefined,
+      agentId: agentId ?? undefined,
+      referrerStudentId: referrerStudentId ?? undefined,
+      razorpayOrderId,
+      razorpayPaymentId,
+      razorpaySignature,
+      acceptedTerms: true,
+      acceptedTermsAt: new Date(),
+    });
+  } catch (err) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      const winner = await prisma.payment.findFirst({ where: { razorpayPaymentId } });
+      if (winner) {
+        return { success: true, alreadyProcessed: true, payment: winner };
+      }
+    }
+    throw err;
+  }
 
   // 4. Update coupon usage
   if (couponId) {
@@ -377,6 +404,29 @@ export async function completePaymentAndEnrollment(params: {
     }),
   ]);
 
+  // Enroll the buyer into the student referral program: generate their own
+  // referral code so it can be shared in the confirmation email. Best-effort —
+  // a failure here must never break payment processing.
+  let buyerReferralCode: string | null = null;
+  let referralDiscountText: string | null = null;
+  let referralCommissionText: string | null = null;
+  try {
+    const settings = await getReferralSettings();
+    if (settings.studentReferralEnabled) {
+      buyerReferralCode = await ensureStudentReferralCode(studentId);
+      referralDiscountText = formatReferralRate(
+        settings.studentDiscountType,
+        settings.studentDiscountValue,
+      );
+      referralCommissionText =
+        settings.studentCommissionType === "PERCENTAGE"
+          ? `${settings.studentCommissionValue}% of the course fee`
+          : `$${settings.studentCommissionValue} per enrollment`;
+    }
+  } catch (err) {
+    console.error("[Referral] Failed to generate buyer referral code:", err);
+  }
+
   if (studentData?.email && courseData?.name) {
     const currencySymbolMap: Record<string, string> = {
       USD: "$", INR: "₹", EUR: "€", GBP: "£", AED: "د.إ",
@@ -392,6 +442,9 @@ export async function completePaymentAndEnrollment(params: {
       paidAt: payment.createdAt,
       batchName: enrollmentData?.batch?.name ?? null,
       whatsappGroupUrl: enrollmentData?.batch?.whatsappGroupUrl ?? null,
+      referralCode: buyerReferralCode,
+      referralDiscountText,
+      referralCommissionText,
     }).catch((err) => console.error("[Email] Failed to send enrollment email:", err));
   }
 

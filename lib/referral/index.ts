@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { ReferralSettings, Student } from "@prisma/client";
+import { Prisma, ReferralSettings, Student } from "@prisma/client";
 
 export type RateType = "PERCENTAGE" | "FLAT";
 
@@ -18,11 +18,21 @@ async function getVydhraBusinessId() {
  */
 export async function getReferralSettings(): Promise<ReferralSettings> {
   const businessId = await getVydhraBusinessId();
-  return prisma.referralSettings.upsert({
-    where: { businessId },
-    update: {},
-    create: { businessId },
-  });
+  try {
+    return await prisma.referralSettings.upsert({
+      where: { businessId },
+      update: {},
+      create: { businessId },
+    });
+  } catch (err) {
+    // Two concurrent first-time calls can both take the create branch;
+    // the loser hits the unique constraint — the row exists now, re-read it.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      const existing = await prisma.referralSettings.findUnique({ where: { businessId } });
+      if (existing) return existing;
+    }
+    throw err;
+  }
 }
 
 export type UpdateReferralSettingsInput = Partial<{
@@ -113,8 +123,12 @@ export async function ensureStudentReferralCode(studentId: string): Promise<stri
         data: { referralCode: code },
       });
       return code;
-    } catch {
-      // Unique constraint race — retry with a new suffix
+    } catch (err) {
+      // Unique constraint race — retry with a new suffix. Anything else
+      // (connection loss, etc.) must surface, not burn retry attempts.
+      if (!(err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002")) {
+        throw err;
+      }
     }
   }
   throw new Error("Could not generate a unique referral code");

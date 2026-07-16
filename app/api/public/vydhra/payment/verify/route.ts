@@ -12,25 +12,14 @@ const razorpay = new Razorpay({
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const {
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      studentId,
-      enrollmentId,
-      courseId,
-      couponId,
-      referrerStudentId,
-    } = body;
+    // Only the Razorpay identifiers are taken from the client. Everything
+    // else (studentId, enrollmentId, couponId, referrerStudentId, ...) is
+    // read from the order notes set server-side at order creation — a client
+    // could otherwise credit commission to an arbitrary coupon/referrer.
+    const { razorpayOrderId, razorpayPaymentId, razorpaySignature } = body;
 
     // --- Validate required fields ---
-    if (
-      !razorpayOrderId ||
-      !razorpayPaymentId ||
-      !razorpaySignature ||
-      !studentId ||
-      !enrollmentId
-    ) {
+    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
       return NextResponse.json({ error: "Missing required payment fields" }, { status: 400 });
     }
 
@@ -66,15 +55,27 @@ export async function POST(req: Request) {
     const amount = Number(razorpayPayment.amount) / 100; // paise → major units
     const currency = (razorpayPayment.currency || "USD").toUpperCase();
 
+    // --- Resolve enrollment metadata from the order notes (server-set at
+    // order creation, echoed back by Razorpay on the payment entity) ---
+    const notes = (razorpayPayment.notes ?? {}) as Record<string, string>;
+    const studentId = notes.studentId;
+    const enrollmentId = notes.enrollmentId;
+    if (!studentId || !enrollmentId) {
+      return NextResponse.json(
+        { error: "Payment verification failed: missing order metadata" },
+        { status: 400 }
+      );
+    }
+
     // --- Process Payment and Enrollment Completion ---
     const result = await completePaymentAndEnrollment({
       amount,
       currency,
       studentId,
       enrollmentId,
-      courseId,
-      couponId,
-      referrerStudentId: referrerStudentId || null,
+      courseId: notes.courseId || null,
+      couponId: notes.couponId || null,
+      referrerStudentId: notes.referrerStudentId || null,
       razorpayOrderId,
       razorpayPaymentId,
       razorpaySignature,

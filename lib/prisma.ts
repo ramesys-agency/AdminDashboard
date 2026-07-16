@@ -46,7 +46,7 @@ function createPrismaClient() {
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>
 
-const PRISMA_CACHE_KEY = 'prisma_v2' // increment when schema changes to bust HMR cache
+const PRISMA_CACHE_KEY = 'prisma_v3' // increment when schema changes to bust HMR cache
 const globalForPrisma = global as unknown as { [key: string]: ExtendedPrismaClient }
 
 const prisma = globalForPrisma[PRISMA_CACHE_KEY] ?? createPrismaClient()

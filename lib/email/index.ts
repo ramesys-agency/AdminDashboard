@@ -21,6 +21,12 @@ export interface EnrollmentEmailData {
   paidAt: Date;
   whatsappGroupUrl?: string | null;
   batchName?: string | null;
+  /** The student's own referral code — renders the Refer & Earn section when set */
+  referralCode?: string | null;
+  /** Human-readable discount the referred friend gets, e.g. "10%" or "$10" */
+  referralDiscountText?: string | null;
+  /** Human-readable commission the student earns per referral, e.g. "10% of the course fee" */
+  referralCommissionText?: string | null;
 }
 
 function currencySymbolFor(currency: string): string {
@@ -48,6 +54,35 @@ export async function sendEnrollmentConfirmationEmail(data: EnrollmentEmailData)
                 <a href="${resolvedWhatsappUrl}" style="display: inline-block; background: #25d366; color: #ffffff; text-decoration: none; font-weight: 700; font-size: 14px; padding: 12px 24px; border-radius: 8px;">
                   Join WhatsApp Group →
                 </a>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>`
+    : "";
+
+  const referralSection = data.referralCode
+    ? `
+      <tr>
+        <td style="padding: 24px 32px; background: #fff7ed; border-top: 1px solid #ffedd5;">
+          <table width="100%" cellpadding="0" cellspacing="0">
+            <tr>
+              <td>
+                <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: #ea580c; text-transform: uppercase; letter-spacing: 0.08em;">🎁 Refer & Earn</p>
+                <p style="margin: 0 0 16px 0; font-size: 14px; color: #374151; line-height: 1.6;">
+                  You're now part of the Vydhra referral program! Share your personal referral code with friends —
+                  ${data.referralDiscountText ? `they get <strong style="color: #111827;">${data.referralDiscountText} off</strong> their course, and ` : ""}you earn${data.referralCommissionText ? ` <strong style="color: #111827;">${data.referralCommissionText}</strong>` : " a reward"} every time someone enrolls with your code.
+                </p>
+                <div style="background: #ffffff; border: 2px dashed #fdba74; border-radius: 10px; padding: 14px 20px; text-align: center; margin-bottom: 12px;">
+                  <p style="margin: 0 0 2px 0; font-size: 11px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.1em;">Your Referral Code</p>
+                  <p style="margin: 0; font-size: 22px; font-weight: 900; color: #ea580c; font-family: monospace; letter-spacing: 0.05em;">${data.referralCode}</p>
+                </div>
+                <p style="margin: 0; font-size: 13px; color: #6b7280; line-height: 1.6;">
+                  <strong style="color: #374151;">How it works:</strong> your friend enters the code
+                  <strong style="color: #ea580c; font-family: monospace;">${data.referralCode}</strong>
+                  in the "coupon or referral code" field at checkout on vydhra.com. Once their payment completes,
+                  your reward is credited automatically and we'll email you the details.
+                </p>
               </td>
             </tr>
           </table>
@@ -123,6 +158,9 @@ export async function sendEnrollmentConfirmationEmail(data: EnrollmentEmailData)
 
           <!-- WhatsApp Section -->
           ${whatsappSection}
+
+          <!-- Refer & Earn Section -->
+          ${referralSection}
 
           <!-- Footer -->
           <tr>
@@ -365,6 +403,90 @@ export async function sendContactNotificationEmail(data: ContactEmailData) {
     to: "info@vydhra.com",
     replyTo: data.email,
     subject: `New Enquiry from ${data.name} – Vydhra Contact Form`,
+    html,
+  });
+}
+
+export interface AgentApplicationEmailData {
+  name: string;
+  email: string;
+  phone: string;
+  background?: string;
+  submittedAt: Date;
+}
+
+export async function sendAgentApplicationEmail(data: AgentApplicationEmailData) {
+  const submittedAt = new Date(data.submittedAt).toLocaleString("en-US", {
+    dateStyle: "long",
+    timeStyle: "short",
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>New Agent Referral Application – Vydhra</title>
+</head>
+<body style="margin: 0; padding: 0; background: #f9fafb; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background: #f9fafb; padding: 40px 20px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; width: 100%;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #ea580c 0%, #f97316 100%); border-radius: 16px 16px 0 0; padding: 32px; text-align: center;">
+              <p style="margin: 0 0 8px 0; font-size: 26px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">VYDHRA</p>
+              <p style="margin: 0; font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.85); text-transform: uppercase; letter-spacing: 0.08em;">New Agent Referral Application</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #ffffff; padding: 40px 32px;">
+              <p style="margin: 0 0 24px 0; font-size: 15px; color: #374151; line-height: 1.6;">
+                Someone applied to become a <strong>referral agent</strong> via the Referrals page on <strong>vydhra.com</strong>. Review the details and reach out to onboard them (create their agent code from the admin dashboard).
+              </p>
+              <div style="background: #f9fafb; border-radius: 12px; padding: 24px; margin-bottom: 24px;">
+                <table width="100%" cellpadding="0" cellspacing="0">
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6; width: 35%;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Name</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${data.name}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Email</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><a href="mailto:${data.email}" style="font-size: 13px; color: #ea580c; font-weight: 600; text-decoration: none;">${data.email}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Phone</span></td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #f3f4f6;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${data.phone}</span></td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 10px 0;"><span style="font-size: 13px; color: #6b7280; font-weight: 500;">Submitted</span></td>
+                    <td style="padding: 10px 0;"><span style="font-size: 13px; color: #111827; font-weight: 600;">${submittedAt}</span></td>
+                  </tr>
+                </table>
+              </div>
+              ${data.background ? `<div style="background: #fff7ed; border-left: 4px solid #ea580c; border-radius: 0 8px 8px 0; padding: 16px 20px;">
+                <p style="margin: 0 0 8px 0; font-size: 11px; font-weight: 700; color: #9a3412; text-transform: uppercase; letter-spacing: 0.08em;">Industry Background</p>
+                <p style="margin: 0; font-size: 14px; color: #374151; line-height: 1.7;">${data.background.replace(/\n/g, "<br/>")}</p>
+              </div>` : ""}
+            </td>
+          </tr>
+          <tr>
+            <td style="background: #f9fafb; border-radius: 0 0 16px 16px; padding: 20px 32px; text-align: center; border-top: 1px solid #f3f4f6;">
+              <p style="margin: 0; font-size: 12px; color: #9ca3af;">This is an automated notification from vydhra.com</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  await transporter.sendMail({
+    from: `"Vydhra Referrals" <${process.env.SMTP_FROM || process.env.SMTP_USER}>`,
+    to: "info@vydhra.com",
+    replyTo: data.email,
+    subject: `New Agent Referral Application from ${data.name} – Vydhra`,
     html,
   });
 }

@@ -144,21 +144,21 @@ model CoursePricing {
 }
 
 model CourseBatch {
-  id          String             @id @default(cuid())
-  courseId    String
-  name        String
-  startDate   DateTime
-  endDate     DateTime
-  maxSeats          Int?
-  status            BatchStatus        @default(UPCOMING)
-  whatsappGroupUrl  String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  createdBy         String?
-  updatedBy         String?
-  course            Course             @relation(fields: [courseId], references: [id])
-  enrollments       CourseEnrollment[]
-  pricing           BatchPricing[]
+  id               String             @id @default(cuid())
+  courseId         String
+  name             String
+  startDate        DateTime
+  endDate          DateTime
+  maxSeats         Int?
+  status           BatchStatus        @default(UPCOMING)
+  whatsappGroupUrl String?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  createdBy        String?
+  updatedBy        String?
+  course           Course             @relation(fields: [courseId], references: [id])
+  enrollments      CourseEnrollment[]
+  pricing          BatchPricing[]
 }
 
 model BatchPricing {
@@ -211,19 +211,19 @@ model Agent {
 }
 
 model Coupon {
-  id            String           @id @default(cuid())
-  businessId    String
+  id          String           @id @default(cuid())
+  businessId  String
   code        String           @unique
   maxUses     Int?
-  currentUses   Int              @default(0)
-  validUntil    DateTime?
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  createdBy     String?
-  updatedBy     String?
-  business      Business         @relation(fields: [businessId], references: [id])
-  payments      Payment[]
-  discounts     CouponDiscount[]
+  currentUses Int              @default(0)
+  validUntil  DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  createdBy   String?
+  updatedBy   String?
+  business    Business         @relation(fields: [businessId], references: [id])
+  payments    Payment[]
+  discounts   CouponDiscount[]
 }
 
 model CouponDiscount {
@@ -269,7 +269,7 @@ model Payment {
   couponId           String?
   referrerStudentId  String?
   razorpayOrderId    String?
-  razorpayPaymentId  String?
+  razorpayPaymentId  String?           @unique
   razorpaySignature  String?
   acceptedTerms      Boolean           @default(false)
   acceptedTermsAt    DateTime?
