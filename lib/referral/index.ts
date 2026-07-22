@@ -1,16 +1,9 @@
-import prisma from "@/lib/prisma";
+import prisma, { TransactionClient } from "@/lib/prisma";
 import { Prisma, ReferralSettings, Student } from "@prisma/client";
+import { getVydhraBusinessId } from "@/lib/business";
+import { randomInt } from "crypto";
 
 export type RateType = "PERCENTAGE" | "FLAT";
-
-async function getVydhraBusinessId() {
-  const vydhra = await prisma.business.findFirst({
-    where: { type: "COURSE_SELLING" },
-    select: { id: true },
-  });
-  if (!vydhra) throw new Error("Vydhra business not found");
-  return vydhra.id;
-}
 
 /**
  * Returns the referral settings row for the Vydhra business,
@@ -81,7 +74,7 @@ const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 function randomCodeSuffix(length: number) {
   let out = "";
   for (let i = 0; i < length; i++) {
-    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+    out += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)];
   }
   return out;
 }
@@ -89,8 +82,10 @@ function randomCodeSuffix(length: number) {
 /**
  * Referral codes share a single namespace with coupon and agent codes
  * (checkout resolves coupons first, so a collision would shadow the code).
+ * Also used by coupon/agent creation to keep admins from shadowing an
+ * existing student referral code.
  */
-async function isCodeTaken(code: string) {
+export async function isCodeTaken(code: string) {
   const [student, coupon, agent] = await Promise.all([
     prisma.student.findUnique({ where: { referralCode: code }, select: { id: true } }),
     prisma.coupon.findUnique({ where: { code }, select: { id: true } }),
@@ -114,8 +109,11 @@ export async function ensureStudentReferralCode(studentId: string): Promise<stri
   const prefix =
     (student.name || "").toUpperCase().replace(/[^A-Z]/g, "").slice(0, 6) || "REF";
 
+  // 6-char suffix over a 31-char alphabet (~887M combinations per prefix) —
+  // long enough that scripted guessing against the public validate endpoint
+  // is impractical. Existing shorter codes remain valid.
   for (let attempt = 0; attempt < 10; attempt++) {
-    const code = `${prefix}-${randomCodeSuffix(4)}`;
+    const code = `${prefix}-${randomCodeSuffix(6)}`;
     if (await isCodeTaken(code)) continue;
     try {
       await prisma.student.update({
@@ -180,18 +178,29 @@ export async function resolveStudentReferral(
   };
 }
 
+export type EarningCreditOptions = {
+  /** Transaction client — pass to make the credit atomic with the payment. */
+  tx?: TransactionClient;
+  /** Payment being credited; when set, a CommissionCredit ledger row is written. */
+  paymentId?: string;
+};
+
 /**
  * Credits referral commission to a student for a completed payment.
  * `paymentAmountUsd` must already be converted to USD — student earnings
  * are tracked in USD, mirroring agent earnings.
+ * Writes a CommissionCredit ledger row (when `paymentId` is provided) and
+ * increments the derived `totalEarned` aggregate in the same client/tx.
  * Returns the credit details so callers can notify the referrer.
  */
 export async function incrementStudentReferralEarnings(
   referrerStudentId: string,
   paymentAmountUsd: number,
+  opts: EarningCreditOptions = {},
 ) {
+  const db = opts.tx ?? prisma;
   const [student, settings] = await Promise.all([
-    prisma.student.findUnique({
+    db.student.findUnique({
       where: { id: referrerStudentId },
       select: {
         name: true,
@@ -213,7 +222,22 @@ export async function incrementStudentReferralEarnings(
       ? (paymentAmountUsd * (commissionValue || 0)) / 100
       : commissionValue || 0;
 
-  const updated = await prisma.student.update({
+  if (opts.paymentId) {
+    // Ledger row first — the @@unique(paymentId, referrerStudentId) constraint
+    // is a second idempotency net against double-crediting the same payment.
+    await db.commissionCredit.create({
+      data: {
+        paymentId: opts.paymentId,
+        referrerStudentId,
+        rateType: commissionType,
+        rateValue: commissionValue || 0,
+        saleAmountUsd: paymentAmountUsd,
+        amountUsd: commission,
+      },
+    });
+  }
+
+  const updated = await db.student.update({
     where: { id: referrerStudentId },
     data: { totalEarned: { increment: commission } },
     select: { totalEarned: true },

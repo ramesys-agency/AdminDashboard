@@ -46,6 +46,13 @@ function createPrismaClient() {
 
 type ExtendedPrismaClient = ReturnType<typeof createPrismaClient>
 
+// Client passed to interactive $transaction callbacks on the extended client
+// (the built-in Prisma.TransactionClient type doesn't match an $extends client).
+export type TransactionClient = Omit<
+  ExtendedPrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>
+
 const PRISMA_CACHE_KEY = 'prisma_v3' // increment when schema changes to bust HMR cache
 const globalForPrisma = global as unknown as { [key: string]: ExtendedPrismaClient }
 

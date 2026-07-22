@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { upsertStudent, createEnrollment } from "@/lib/student";
 import prisma from "@/lib/prisma";
 import { getUsdToInrRate, resolvePrice } from "@/lib/exchange";
-import { resolveStudentReferral } from "@/lib/referral";
+import { resolveCodeAndQuote, quoteTotals } from "@/lib/pricing";
+import { getVydhraBusinessId } from "@/lib/business";
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
@@ -11,7 +12,6 @@ const razorpay = new Razorpay({
 });
 
 const SUPPORTED_CURRENCIES = ["USD", "INR"];
-const INR_GST_RATE = 0.18;
 
 export async function POST(req: Request) {
   try {
@@ -53,24 +53,17 @@ export async function POST(req: Request) {
     }
 
     // --- Find course in DB ---
-    const vydhra = await prisma.business.findFirst({
-      where: { type: "COURSE_SELLING" },
-      select: { id: true },
-    });
-
-    if (!vydhra) {
-      return NextResponse.json({ error: "Vydhra business not found" }, { status: 500 });
-    }
+    const businessId = await getVydhraBusinessId();
 
     let course = await prisma.course.findFirst({
-      where: { businessId: vydhra.id, slug: courseSlug },
+      where: { businessId, slug: courseSlug },
       include: { pricing: true },
     });
 
     if (!course && courseName) {
       course = await prisma.course.findFirst({
         where: {
-          businessId: vydhra.id,
+          businessId,
           name: { contains: courseName, mode: "insensitive" },
         },
         include: { pricing: true },
@@ -99,7 +92,7 @@ export async function POST(req: Request) {
         const seatsTaken = await prisma.courseEnrollment.count({
           where: {
             batchId,
-            status: { not: "PENDING" },
+            status: { notIn: ["PENDING", "EXPIRED"] },
           },
         });
         if (seatsTaken >= batch.maxSeats) {
@@ -124,84 +117,31 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Resolve and apply coupon or student referral code if provided ---
+    // --- Resolve coupon / student referral code and compute the quote ---
+    // Shared with /coupon/validate so the preview and the charge always agree.
     let coupon: { id: string } | null = null;
     let referrerStudentId: string | null = null;
     let discountAmount = 0;
+    let { gstAmount, total } = quoteTotals(basePrice, 0, currency);
     if (couponCode) {
-      const dbCoupon = await prisma.coupon.findFirst({
-        where: {
-          code: String(couponCode).toUpperCase().trim(),
-          businessId: vydhra.id,
-          OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
-        },
-        include: { discounts: true },
+      const quote = await resolveCodeAndQuote({
+        code: String(couponCode),
+        basePrice,
+        currency,
+        email,
+        usdToInrRate,
       });
 
-      if (dbCoupon) {
-        if (dbCoupon.maxUses !== null && dbCoupon.currentUses >= dbCoupon.maxUses) {
-          return NextResponse.json(
-            { error: "This coupon has reached its usage limit" },
-            { status: 400 }
-          );
-        }
-
-        let discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === currency);
-        let flatNeedsConversion = false;
-        if (!discount && currency === "INR") {
-          discount = dbCoupon.discounts.find((d) => d.currency.toUpperCase() === "USD");
-          flatNeedsConversion = !!discount;
-        }
-
-        if (!discount) {
-          return NextResponse.json(
-            { error: `This coupon is not available in ${currency}` },
-            { status: 400 }
-          );
-        }
-
-        if (discount.discountType === "PERCENTAGE") {
-          discountAmount = (basePrice * discount.discountValue) / 100;
-        } else {
-          discountAmount = flatNeedsConversion
-            ? discount.discountValue * usdToInrRate
-            : discount.discountValue;
-        }
-
-        coupon = { id: dbCoupon.id };
-      } else {
-        // Not a coupon — try to resolve as a student referral code
-        const referral = await resolveStudentReferral(String(couponCode));
-
-        if (!referral) {
-          return NextResponse.json({ error: "Invalid or expired coupon code" }, { status: 400 });
-        }
-
-        if (String(email).toLowerCase().trim() === referral.student.email.toLowerCase()) {
-          return NextResponse.json(
-            { error: "You cannot use your own referral code" },
-            { status: 400 }
-          );
-        }
-
-        // FLAT student referral discounts are denominated in USD
-        if (referral.discountType === "PERCENTAGE") {
-          discountAmount = (basePrice * referral.discountValue) / 100;
-        } else {
-          discountAmount =
-            currency === "INR"
-              ? referral.discountValue * usdToInrRate
-              : referral.discountValue;
-        }
-
-        referrerStudentId = referral.student.id;
+      if (!quote.valid) {
+        return NextResponse.json({ error: quote.error }, { status: 400 });
       }
-    }
 
-    const subtotal = Math.max(0, basePrice - discountAmount);
-    const gstRate = currency === "INR" ? INR_GST_RATE : 0;
-    const gstAmount = Math.round(subtotal * gstRate * 100) / 100;
-    const total = Math.round((subtotal + gstAmount) * 100) / 100;
+      coupon = quote.couponId ? { id: quote.couponId } : null;
+      referrerStudentId = quote.referrerStudentId;
+      discountAmount = quote.discountAmount;
+      gstAmount = quote.gstAmount;
+      total = quote.total;
+    }
 
     if (total <= 0) {
       return NextResponse.json(

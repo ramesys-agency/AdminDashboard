@@ -112,6 +112,7 @@ model Student {
   enrollments      CourseEnrollment[]
   payments         Payment[]          @relation("StudentPayments")
   referredPayments Payment[]          @relation("ReferrerStudentPayments")
+  commissionCredits CommissionCredit[] @relation("StudentCommissionCredits")
   business         Business           @relation(fields: [businessId], references: [id])
 }
 
@@ -208,6 +209,7 @@ model Agent {
   totalPaid        Float          @default(0)
   business         Business       @relation(fields: [businessId], references: [id])
   payments         Payment[]
+  commissionCredits CommissionCredit[]
 }
 
 model Coupon {
@@ -285,6 +287,34 @@ model Payment {
   student            Student?          @relation("StudentPayments", fields: [studentId], references: [id])
   referrerStudent    Student?          @relation("ReferrerStudentPayments", fields: [referrerStudentId], references: [id])
   courseEnrollment   CourseEnrollment? @relation(fields: [courseEnrollmentId], references: [id])
+  commissionCredits  CommissionCredit[]
+}
+
+// Commission ledger: one row per payment per beneficiary (agent or referring
+// student). Source of truth for earnings — Agent.totalEarned / Student.totalEarned
+// are derived aggregates kept in sync in the same transaction.
+model CommissionCredit {
+  id                String       @id @default(cuid())
+  paymentId         String
+  agentId           String?
+  referrerStudentId String?
+  // Snapshot of the rate used at credit time (rates on Agent/Student can change later)
+  rateType          CommissionType
+  rateValue         Float
+  saleAmountUsd     Float
+  amountUsd         Float
+  status            CreditStatus @default(EARNED)
+  backfilled        Boolean      @default(false)
+  reversedAt        DateTime?
+  createdAt         DateTime     @default(now())
+  payment           Payment      @relation(fields: [paymentId], references: [id])
+  agent             Agent?       @relation(fields: [agentId], references: [id])
+  referrerStudent   Student?     @relation("StudentCommissionCredits", fields: [referrerStudentId], references: [id])
+
+  @@unique([paymentId, agentId])
+  @@unique([paymentId, referrerStudentId])
+  @@index([agentId, status])
+  @@index([referrerStudentId, status])
 }
 
 model ReferralSettings {
@@ -328,4 +358,10 @@ enum CommissionType {
 enum DiscountType {
   PERCENTAGE
   FLAT
+}
+
+enum CreditStatus {
+  EARNED
+  REVERSED
+  PAID_OUT
 }

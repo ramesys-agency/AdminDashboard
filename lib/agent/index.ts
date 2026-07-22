@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
-import { getReferralSettings } from "@/lib/referral";
+import { getReferralSettings, isCodeTaken, EarningCreditOptions } from "@/lib/referral";
+import { getVydhraBusinessId } from "@/lib/business";
 
 export type GetAgentsParams = {
   page?: number;
@@ -101,13 +102,17 @@ export async function updateAgentStatistics(
 
 /**
  * Credits commission for a completed payment (paymentAmount in USD).
+ * Writes a CommissionCredit ledger row (when `opts.paymentId` is provided)
+ * and increments the derived `totalEarned` aggregate in the same client/tx.
  * Returns the credit details so callers can notify the agent.
  */
 export async function incrementAgentEarnings(
   agentId: string,
   paymentAmount: number,
+  opts: EarningCreditOptions = {},
 ) {
-  const agent = await prisma.agent.findUnique({
+  const db = opts.tx ?? prisma;
+  const agent = await db.agent.findUnique({
     where: { id: agentId },
     select: {
       name: true,
@@ -124,7 +129,22 @@ export async function incrementAgentEarnings(
       ? (paymentAmount * (agent.commissionValue || 0)) / 100
       : agent.commissionValue || 0;
 
-  const updated = await prisma.agent.update({
+  if (opts.paymentId) {
+    // Ledger row first — @@unique(paymentId, agentId) doubles as an
+    // idempotency guard against double-crediting the same payment.
+    await db.commissionCredit.create({
+      data: {
+        paymentId: opts.paymentId,
+        agentId,
+        rateType: agent.commissionType,
+        rateValue: agent.commissionValue || 0,
+        saleAmountUsd: paymentAmount,
+        amountUsd: commission,
+      },
+    });
+  }
+
+  const updated = await db.agent.update({
     where: { id: agentId },
     data: {
       totalEarned: { increment: commission },
@@ -151,12 +171,17 @@ export async function createAgent(data: {
   discountType?: "PERCENTAGE" | "FLAT";
   discountValue?: number;
 }) {
-  const vydhra = await prisma.business.findFirst({
-    where: { type: "COURSE_SELLING" },
-    select: { id: true },
-  });
+  const businessId = await getVydhraBusinessId();
 
-  if (!vydhra) throw new Error("Vydhra business not found");
+  // Codes share one namespace with coupons and student referral codes, and
+  // checkout resolves coupons first — reusing a student's code would silently
+  // shadow it forever. Reject up front with a clear message.
+  const code = data.code.toUpperCase().trim();
+  if (await isCodeTaken(code)) {
+    throw new Error(
+      `Code "${code}" is already in use by an agent, coupon, or student referral code`,
+    );
+  }
 
   // Fall back to the configured agent defaults for anything not provided
   const settings = await getReferralSettings();
@@ -173,18 +198,18 @@ export async function createAgent(data: {
         name: data.name,
         email: data.email,
         phone: data.phone,
-        code: data.code,
+        code,
         commissionType,
         commissionValue,
-        businessId: vydhra.id,
+        businessId,
       },
     });
 
     // Create a corresponding Coupon with per-currency discounts (defaults to USD)
     await tx.coupon.create({
       data: {
-        code: data.code,
-        businessId: vydhra.id,
+        code,
+        businessId,
         discounts: {
           create: {
             currency: "USD",

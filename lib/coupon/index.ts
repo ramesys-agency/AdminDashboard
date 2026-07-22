@@ -1,5 +1,7 @@
 import prisma from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
+import { isCodeTaken } from "@/lib/referral";
+import { getVydhraBusinessId } from "@/lib/business";
 
 export type GetCouponsParams = {
   page?: number;
@@ -55,17 +57,22 @@ export async function createCoupon(data: {
   maxUses?: number | null;
   validUntil?: string | null;
 }) {
-  const vydhra = await prisma.business.findFirst({
-    where: { type: "COURSE_SELLING" },
-    select: { id: true },
-  });
+  const businessId = await getVydhraBusinessId();
 
-  if (!vydhra) throw new Error("Vydhra business not found");
+  // Coupon, agent, and student referral codes share one namespace and
+  // checkout resolves coupons first — a duplicate would silently shadow an
+  // existing student referral code. Reject with a clear message instead.
+  const code = data.code.toUpperCase().trim();
+  if (await isCodeTaken(code)) {
+    throw new Error(
+      `Code "${code}" is already in use by an agent, coupon, or student referral code`,
+    );
+  }
 
   return prisma.coupon.create({
     data: {
-      code: data.code.toUpperCase().trim(),
-      businessId: vydhra.id,
+      code,
+      businessId,
       maxUses: data.maxUses ?? null,
       validUntil: data.validUntil ? new Date(data.validUntil) : null,
       discounts: {
@@ -90,19 +97,23 @@ export async function updateCoupon(
     validUntil?: string | null;
   }
 ) {
-  if (data.discounts !== undefined) {
-    await prisma.couponDiscount.deleteMany({ where: { couponId: id } });
-  }
+  // Delete + recreate discounts atomically — a crash between the two would
+  // otherwise leave the coupon with no discounts (silently unusable).
+  return prisma.$transaction(async (tx) => {
+    if (data.discounts !== undefined) {
+      await tx.couponDiscount.deleteMany({ where: { couponId: id } });
+    }
 
-  return prisma.coupon.update({
-    where: { id },
-    data: {
-      maxUses: data.maxUses ?? undefined,
-      validUntil: data.validUntil !== undefined ? (data.validUntil ? new Date(data.validUntil) : null) : undefined,
-      ...(data.discounts !== undefined && {
-        discounts: { createMany: { data: data.discounts } },
-      }),
-    },
-    include: { discounts: true },
+    return tx.coupon.update({
+      where: { id },
+      data: {
+        maxUses: data.maxUses ?? undefined,
+        validUntil: data.validUntil !== undefined ? (data.validUntil ? new Date(data.validUntil) : null) : undefined,
+        ...(data.discounts !== undefined && {
+          discounts: { createMany: { data: data.discounts } },
+        }),
+      },
+      include: { discounts: true },
+    });
   });
 }

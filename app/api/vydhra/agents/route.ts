@@ -14,6 +14,14 @@ export const GET = withAuth(async (req) => {
 
 export const POST = withAuth(async (req) => {
   const body = await req.json();
-  const agent = await createAgent(body);
-  return NextResponse.json(agent);
+  try {
+    const agent = await createAgent(body);
+    return NextResponse.json(agent);
+  } catch (err) {
+    // Shared-namespace collision (agent / coupon / student referral code)
+    if (err instanceof Error && err.message.includes("already in use")) {
+      return NextResponse.json({ error: err.message }, { status: 409 });
+    }
+    throw err;
+  }
 });

@@ -1,7 +1,8 @@
-import prisma from "@/lib/prisma";
+import prisma, { TransactionClient } from "@/lib/prisma";
 import { Prisma } from "@prisma/client";
 import { sendEnrollmentConfirmationEmail, sendReferralEarningEmail } from "@/lib/email";
 import { getUsdToInrRate } from "@/lib/exchange";
+import { getVydhraBusinessId } from "@/lib/business";
 
 export type GetPaymentsParams = {
   page?: number;
@@ -149,14 +150,27 @@ export async function updatePaymentStatus(id: string, status: string) {
   if (status === "COMPLETED" && payment.status !== "COMPLETED") {
     const amountUsd = await toUsd(payment.amount, payment.currency ?? "USD");
 
-    let agentCredit = null;
-    let studentCredit = null;
-    if (payment.agentId) {
-      agentCredit = await incrementAgentEarnings(payment.agentId, amountUsd);
-    }
-    if (payment.referrerStudentId) {
-      studentCredit = await incrementStudentReferralEarnings(payment.referrerStudentId, amountUsd);
-    }
+    // Credits and the status flip are atomic — a crash can't leave a
+    // COMPLETED payment with uncredited commission (or vice versa).
+    const { updated, agentCredit, studentCredit } = await prisma.$transaction(async (tx) => {
+      let agentCredit = null;
+      let studentCredit = null;
+      if (payment.agentId) {
+        agentCredit = await incrementAgentEarnings(payment.agentId, amountUsd, {
+          tx,
+          paymentId: id,
+        });
+      }
+      if (payment.referrerStudentId) {
+        studentCredit = await incrementStudentReferralEarnings(
+          payment.referrerStudentId,
+          amountUsd,
+          { tx, paymentId: id },
+        );
+      }
+      const updated = await tx.payment.update({ where: { id }, data: { status } });
+      return { updated, agentCredit, studentCredit };
+    });
 
     notifyReferralEarnings({
       credits: [
@@ -169,6 +183,8 @@ export async function updatePaymentStatus(id: string, status: string) {
       saleCurrency: payment.currency ?? "USD",
       paidAt: payment.createdAt,
     });
+
+    return updated;
   }
 
   return prisma.payment.update({
@@ -200,13 +216,8 @@ export async function createPayment(data: {
   razorpaySignature?: string;
   acceptedTerms?: boolean;
   acceptedTermsAt?: Date | null;
-}) {
-  const vydhra = await prisma.business.findFirst({
-    where: { type: "COURSE_SELLING" },
-    select: { id: true },
-  });
-
-  if (!vydhra) throw new Error("Vydhra business not found");
+}, tx?: TransactionClient) {
+  const businessId = await getVydhraBusinessId();
 
   const amount = Number(data.amount);
   const currency = (data.currency ?? "USD").toUpperCase();
@@ -215,15 +226,18 @@ export async function createPayment(data: {
   let amountInINR = amount;
 
   if (currency === "USD") {
+    // Cached with a 1h TTL — callers embedding this in a transaction should
+    // pre-warm it (see completePaymentAndEnrollment) so no network call
+    // happens inside the transaction.
     exchangeRate = await getUsdToInrRate();
     amountInINR = amount * exchangeRate;
   }
 
-  return prisma.$transaction(async (tx) => {
+  const run = async (db: TransactionClient) => {
     // Create invoice first
-    const invoice = await tx.invoice.create({
+    const invoice = await db.invoice.create({
       data: {
-        businessId: vydhra.id,
+        businessId,
         amount,
         status: data.status === "COMPLETED" ? "PAID" : "PENDING",
         dueDate: new Date(),
@@ -231,9 +245,9 @@ export async function createPayment(data: {
     });
 
     // Create payment linked to the invoice
-    return tx.payment.create({
+    return db.payment.create({
       data: {
-        businessId: vydhra.id,
+        businessId,
         invoiceId: invoice.id,
         amount,
         currency,
@@ -253,7 +267,9 @@ export async function createPayment(data: {
         acceptedTermsAt: data.acceptedTermsAt ?? null,
       },
     });
-  });
+  };
+
+  return tx ? run(tx) : prisma.$transaction(run);
 }
 
 export async function completePaymentAndEnrollment(params: {
@@ -293,12 +309,14 @@ export async function completePaymentAndEnrollment(params: {
 
   // 2. Resolve agentId if couponId is present
   let agentId: string | null = null;
+  let couponMaxUses: number | null = null;
   if (couponId) {
     const coupon = await prisma.coupon.findUnique({
       where: { id: couponId },
-      select: { code: true },
+      select: { code: true, maxUses: true },
     });
     if (coupon) {
+      couponMaxUses = coupon.maxUses;
       const agent = await prisma.agent.findUnique({
         where: { code: coupon.code },
         select: { id: true },
@@ -322,28 +340,92 @@ export async function completePaymentAndEnrollment(params: {
     }
   }
 
-  // 3. Create payment record. If the client's verify call and the Razorpay
-  // webhook race past the findFirst check above, the unique constraint on
-  // razorpayPaymentId makes the loser land here — treat it as already
-  // processed instead of double-crediting earnings.
+  // Pre-warm the FX cache and convert the sale amount before the transaction —
+  // no network calls may happen inside it.
+  await getUsdToInrRate();
+  const amountUsd = await toUsd(amount, currency);
+
+  // 3-6. Payment record, coupon usage, commission credits, and enrollment
+  // status change happen in ONE transaction. The razorpayPaymentId unique
+  // constraint is created together with the side effects it guards: a crash
+  // rolls everything back and a retry re-runs the whole sequence, so a
+  // COMPLETED payment can never exist with uncredited commission or a
+  // PENDING enrollment. If the client's verify call and the Razorpay webhook
+  // race, the loser's transaction aborts on P2002 — treat as already
+  // processed (the winner did all the side effects).
   let payment;
+  let agentCredit = null;
+  let studentCredit = null;
   try {
-    payment = await createPayment({
-      amount,
-      currency,
-      status: "COMPLETED",
-      method,
-      studentId,
-      courseEnrollmentId: enrollmentId,
-      couponId: couponId ?? undefined,
-      agentId: agentId ?? undefined,
-      referrerStudentId: referrerStudentId ?? undefined,
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature,
-      acceptedTerms: true,
-      acceptedTermsAt: new Date(),
+    const result = await prisma.$transaction(async (tx) => {
+      const createdPayment = await createPayment({
+        amount,
+        currency,
+        status: "COMPLETED",
+        method,
+        studentId,
+        courseEnrollmentId: enrollmentId,
+        couponId: couponId ?? undefined,
+        agentId: agentId ?? undefined,
+        referrerStudentId: referrerStudentId ?? undefined,
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature,
+        acceptedTerms: true,
+        acceptedTermsAt: new Date(),
+      }, tx);
+
+      // Coupon usage: the row-level WHERE makes the maxUses check-and-increment
+      // atomic (the enroll-time check is only a fast-fail UX guard; N concurrent
+      // payments could otherwise all pass it).
+      let couponHonored = true;
+      if (couponId) {
+        const updated = await tx.coupon.updateMany({
+          where: {
+            id: couponId,
+            ...(couponMaxUses !== null && { currentUses: { lt: couponMaxUses } }),
+          },
+          data: { currentUses: { increment: 1 } },
+        });
+        couponHonored = updated.count === 1;
+      }
+
+      // Commission credits (ledger row + derived aggregate, tracked in USD).
+      // Over-limit coupon: the buyer already paid the discounted price, so we
+      // honor the discount but withhold the agent's commission for this sale.
+      let txAgentCredit = null;
+      let txStudentCredit = null;
+      if (agentId && couponHonored) {
+        txAgentCredit = await incrementAgentEarnings(agentId, amountUsd, {
+          tx,
+          paymentId: createdPayment.id,
+        });
+      }
+      if (referrerStudentId) {
+        txStudentCredit = await incrementStudentReferralEarnings(
+          referrerStudentId,
+          amountUsd,
+          { tx, paymentId: createdPayment.id },
+        );
+      }
+
+      await tx.courseEnrollment.update({
+        where: { id: enrollmentId },
+        data: { status: "PAID" },
+      });
+
+      return { createdPayment, couponHonored, txAgentCredit, txStudentCredit };
     });
+
+    payment = result.createdPayment;
+    agentCredit = result.txAgentCredit;
+    studentCredit = result.txStudentCredit;
+    if (!result.couponHonored) {
+      console.error(
+        `[Payment] Coupon ${couponId} exceeded maxUses at payment time ` +
+        `(payment ${razorpayPaymentId}) — discount honored, agent commission withheld.`,
+      );
+    }
   } catch (err) {
     if (
       err instanceof Prisma.PrismaClientKnownRequestError &&
@@ -357,35 +439,8 @@ export async function completePaymentAndEnrollment(params: {
     throw err;
   }
 
-  // 4. Update coupon usage
-  if (couponId) {
-    await prisma.coupon.update({
-      where: { id: couponId },
-      data: { currentUses: { increment: 1 } },
-    });
-  }
-
-  // 5. Increment referrer earnings (tracked in USD)
-  let agentCredit = null;
-  let studentCredit = null;
-  if (agentId) {
-    agentCredit = await incrementAgentEarnings(agentId, await toUsd(amount, currency));
-  }
-  if (referrerStudentId) {
-    studentCredit = await incrementStudentReferralEarnings(
-      referrerStudentId,
-      await toUsd(amount, currency),
-    );
-  }
-
-  // 6. Update enrollment status to PAID
-  await prisma.courseEnrollment.update({
-    where: { id: enrollmentId },
-    data: { status: "PAID" },
-  });
-
   // 7. Fetch details and send confirmation email asynchronously
-  const [studentData, courseData, enrollmentData] = await Promise.all([
+  const [studentData, courseById, enrollmentData] = await Promise.all([
     prisma.student.findUnique({
       where: { id: studentId },
       select: { name: true, email: true, phone: true, country: true },
@@ -400,9 +455,14 @@ export async function completePaymentAndEnrollment(params: {
       where: { id: enrollmentId },
       select: {
         batch: { select: { name: true, whatsappGroupUrl: true } },
+        course: { select: { name: true, description: true } },
       },
     }),
   ]);
+
+  // The enrollment always knows its course — never let a missing courseId in
+  // the order notes silently drop the confirmation email (receipt + referral code).
+  const courseData = courseById ?? enrollmentData?.course ?? null;
 
   // Enroll the buyer into the student referral program: generate their own
   // referral code so it can be shared in the confirmation email. Best-effort —
@@ -468,4 +528,80 @@ export async function completePaymentAndEnrollment(params: {
     student: studentData,
     course: courseData,
   };
+}
+
+/**
+ * Unwinds the effects of a completed payment after a refund or a failed
+ * capture (driven by Razorpay webhooks): payment + invoice status, enrollment
+ * back to PENDING, coupon usage, and every EARNED commission credit (ledger
+ * row flipped to REVERSED and the beneficiary's totalEarned decremented).
+ * Idempotent — re-delivered webhooks are a no-op.
+ */
+export async function reversePaymentEffects(params: {
+  razorpayPaymentId: string;
+  newStatus: "REFUNDED" | "FAILED";
+}) {
+  const { razorpayPaymentId, newStatus } = params;
+
+  const payment = await prisma.payment.findUnique({
+    where: { razorpayPaymentId },
+    include: { commissionCredits: true },
+  });
+  if (!payment) return { reversed: false, reason: "payment_not_found" as const };
+  if (payment.status !== "COMPLETED") {
+    // Already reversed (webhook redelivery) or never completed — nothing to unwind.
+    return { reversed: false, reason: "not_completed" as const };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.payment.update({
+      where: { id: payment.id },
+      data: { status: newStatus },
+    });
+
+    if (payment.invoiceId) {
+      await tx.invoice.update({
+        where: { id: payment.invoiceId },
+        data: { status: newStatus === "REFUNDED" ? "REFUNDED" : "CANCELLED" },
+      });
+    }
+
+    // Back to PENDING (not deleted): frees the batch seat — seat counting
+    // only counts non-PENDING enrollments — while keeping the funnel record.
+    if (payment.courseEnrollmentId) {
+      await tx.courseEnrollment.update({
+        where: { id: payment.courseEnrollmentId },
+        data: { status: "PENDING" },
+      });
+    }
+
+    if (payment.couponId) {
+      await tx.coupon.updateMany({
+        where: { id: payment.couponId, currentUses: { gt: 0 } },
+        data: { currentUses: { decrement: 1 } },
+      });
+    }
+
+    for (const credit of payment.commissionCredits) {
+      if (credit.status !== "EARNED") continue;
+      await tx.commissionCredit.update({
+        where: { id: credit.id },
+        data: { status: "REVERSED", reversedAt: new Date() },
+      });
+      if (credit.agentId) {
+        await tx.agent.update({
+          where: { id: credit.agentId },
+          data: { totalEarned: { decrement: credit.amountUsd } },
+        });
+      }
+      if (credit.referrerStudentId) {
+        await tx.student.update({
+          where: { id: credit.referrerStudentId },
+          data: { totalEarned: { decrement: credit.amountUsd } },
+        });
+      }
+    }
+  });
+
+  return { reversed: true as const };
 }

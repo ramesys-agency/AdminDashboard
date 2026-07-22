@@ -32,8 +32,14 @@ function currencySymbol(code: string): string {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const COURSE_STATUSES = [
+  { value: "LIVE", label: "Live — visible in the Live Courses section" },
+  { value: "COMING_SOON", label: "Coming Soon — listed under Coming Soon" },
+] as const;
+
 const DETAILS_TEMPLATE = {
   slug: "",
+  status: "LIVE",
   title: "",
   subtitle: "",
   image: "",
@@ -166,6 +172,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
   // Required fields
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [status, setStatus] = useState<string>("LIVE");
   const [pricing, setPricing] = useState<
     { currency: string; amount: string; originalPrice: string }[]
   >([{ currency: "USD", amount: "", originalPrice: "" }]);
@@ -220,6 +227,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
         }
 
         const details = course.details ?? {};
+        setStatus(details.status === "COMING_SOON" ? "COMING_SOON" : "LIVE");
         setJsonText(
           JSON.stringify(
             Object.keys(details).length ? details : DETAILS_TEMPLATE,
@@ -471,13 +479,14 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
       }
       try {
         const parsed = JSON.parse(jsonText);
+        parsed.status = status;
         details = Object.keys(parsed).length > 0 ? parsed : null;
       } catch {
         toast.error("Invalid JSON — cannot submit.");
         return;
       }
     } else {
-      const d: Record<string, unknown> = {};
+      const d: Record<string, unknown> = { status };
       if (imageUrl) d.image = imageUrl;
       if (heroImageUrl) d.heroImage = heroImageUrl;
       if (detailsForm.level) d.level = detailsForm.level;
@@ -488,7 +497,7 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
       const requirements = detailsForm.requirements.filter((s) => s.trim());
       if (features.length) d.features = features;
       if (requirements.length) d.requirements = requirements;
-      details = Object.keys(d).length > 0 ? d : null;
+      details = d;
     }
 
     const payload = {
@@ -579,6 +588,41 @@ export function CourseForm({ mode, courseId }: CourseFormProps) {
             onChange={(e) => setName(e.target.value)}
             className="h-11"
           />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="status" className="text-sm font-semibold">
+            Visibility Status
+          </Label>
+          <select
+            id="status"
+            value={status}
+            onChange={(e) => {
+              const next = e.target.value;
+              setStatus(next);
+              if (isJsonMode) {
+                setJsonText((prev) => {
+                  try {
+                    const parsed = JSON.parse(prev);
+                    parsed.status = next;
+                    return JSON.stringify(parsed, null, 2);
+                  } catch {
+                    return prev;
+                  }
+                });
+              }
+            }}
+            className="w-full h-11 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          >
+            {COURSE_STATUSES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-400">
+            Controls which section the course appears in on the Vydhra courses
+            page. Coming Soon courses remain clickable.
+          </p>
         </div>
         <div className="space-y-2">
           <Label htmlFor="description" className="text-sm font-semibold">
