@@ -67,6 +67,13 @@ export async function POST(req: Request) {
       );
     }
 
+    // Deliberately NOT re-checking the course's Coming Soon status here (or in
+    // the webhook): by this point the student has already been charged. The
+    // gate belongs at order creation in /enroll, which is the only endpoint
+    // that mints Razorpay orders. Refusing a captured payment because the
+    // course flipped to Coming Soon after checkout started would take the
+    // money and leave no enrollment behind.
+
     // --- Process Payment and Enrollment Completion ---
     const result = await completePaymentAndEnrollment({
       amount,

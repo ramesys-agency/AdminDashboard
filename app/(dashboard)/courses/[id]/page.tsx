@@ -35,7 +35,9 @@ import {
   Trash2,
   X,
   Check,
+  AlertTriangle,
 } from "lucide-react";
+import { isCourseComingSoon } from "@/lib/course/status";
 
 type BatchStatus = "UPCOMING" | "ACTIVE" | "COMPLETED" | "CANCELLED";
 
@@ -56,6 +58,7 @@ type CourseDetail = {
   id: string;
   name: string;
   description: string | null;
+  details?: Record<string, unknown> | null;
   pricing: Record<string, number>;
   createdAt: string;
   enrollments: Array<{
@@ -213,6 +216,8 @@ export default function CourseDetailPage() {
     );
   }
 
+  const comingSoon = isCourseComingSoon(course.details);
+
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-10">
       <div className="flex items-center justify-between">
@@ -265,9 +270,15 @@ export default function CourseDetailPage() {
                   {course.pricing?.USD != null ? `$${course.pricing.USD.toLocaleString()}` : course.pricing?.INR != null ? `₹${course.pricing.INR.toLocaleString()}` : "—"}
                 </p>
               </div>
-              <Badge className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-50 border-none backdrop-blur-sm px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
-                Live on Platform
-              </Badge>
+              {comingSoon ? (
+                <Badge className="bg-amber-500/25 hover:bg-amber-500/35 text-amber-50 border-none backdrop-blur-sm px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+                  Coming Soon
+                </Badge>
+              ) : (
+                <Badge className="bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-50 border-none backdrop-blur-sm px-3 py-1 text-[10px] font-bold uppercase tracking-wider">
+                  Live on Platform
+                </Badge>
+              )}
             </div>
           </div>
         </CardContent>
@@ -449,6 +460,21 @@ export default function CourseDetailPage() {
 
         <TabsContent value="batches" className="mt-0">
           <Card className="border-none shadow-sm overflow-hidden p-6 space-y-6">
+            {comingSoon && (
+              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600" />
+                <p className="text-sm text-amber-800 leading-relaxed">
+                  <span className="font-semibold">This course is marked Coming Soon.</span>{" "}
+                  It is listed under Coming Soon on the site and public enrollment is rejected, so
+                  batches created here won&apos;t be bookable until the course is switched to Live in{" "}
+                  <Link href={`/courses/${id}/edit`} className="font-semibold underline">
+                    Edit Course
+                  </Link>
+                  .
+                </p>
+              </div>
+            )}
+
             {/* Create/Edit form */}
             {showBatchForm ? (
               <form onSubmit={handleBatchSubmit} className="bg-slate-50 border border-slate-200 rounded-xl p-6 space-y-4">

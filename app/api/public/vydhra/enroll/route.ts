@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getUsdToInrRate, resolvePrice } from "@/lib/exchange";
 import { resolveCodeAndQuote, quoteTotals } from "@/lib/pricing";
 import { getVydhraBusinessId } from "@/lib/business";
+import { isCourseComingSoon } from "@/lib/course/status";
 import Razorpay from "razorpay";
 
 const razorpay = new Razorpay({
@@ -72,6 +73,21 @@ export async function POST(req: Request) {
 
     if (!course) {
       return NextResponse.json({ error: "Course not found in database" }, { status: 404 });
+    }
+
+    // --- Reject Coming Soon courses ---
+    // These have no batches and no announced dates, so there is nothing to
+    // enroll into. The storefront already hides the enroll page, but this is
+    // the only order-minting endpoint — without the check a direct POST would
+    // quote a price and take the payment anyway.
+    if (isCourseComingSoon(course.details)) {
+      return NextResponse.json(
+        {
+          error:
+            "This course is not open for enrollment yet. It will be available once the course goes live.",
+        },
+        { status: 400 }
+      );
     }
 
     // --- Validate batch if provided ---
