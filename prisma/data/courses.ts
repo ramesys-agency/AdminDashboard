@@ -1,6 +1,7 @@
 export const coursesData = [
   {
     slug: "ai-agents-engineering",
+    status: "COMING_SOON",
     title: "AI Agents Engineering Bootcamp",
     subtitle: "8-Week Production AI Agents Journey",
     description:
@@ -212,6 +213,7 @@ export const coursesData = [
   },
   {
     slug: "mern-stack-ai",
+    status: "LIVE",
     title: "MERN + AI Job-Ready Bootcamp",
     subtitle: "Become a Full-Stack Developer with AI Skills",
     description:
@@ -406,6 +408,7 @@ export const coursesData = [
   },
   {
     slug: "ml-job-ready",
+    status: "COMING_SOON",
     title: "ML Job Ready Bootcamp",
     subtitle: "Become Job-Ready in 3–6 Months",
     description:
@@ -611,6 +614,7 @@ export const coursesData = [
   },
   {
     slug: "python-ai",
+    status: "LIVE",
     title: "Python AI Course",
     subtitle: "From Beginner to Job-Ready in 3–6 Months",
     description:
@@ -799,6 +803,7 @@ export const coursesData = [
   },
   {
     slug: "sql-job-ready",
+    status: "COMING_SOON",
     title: "SQL Job-Ready Bootcamp",
     subtitle: "Become Job-Ready in Data & Analytics in 6 Weeks",
     description:
@@ -951,6 +956,7 @@ export const coursesData = [
   },
   {
     slug: "power-bi-analytics",
+    status: "COMING_SOON",
     title: "Power BI Data Analytics Job-Ready Bootcamp",
     subtitle: "Master Power BI from Data Cleaning to Executive Dashboards",
     description:
@@ -1088,6 +1094,7 @@ export const coursesData = [
   },
   {
     slug: "python-data-analysis",
+    status: "COMING_SOON",
     title: "Data Analysis with Python Bootcamp",
     subtitle:
       "Become a Data Analyst with Python, Pandas & Real Business Projects",
@@ -1221,6 +1228,7 @@ export const coursesData = [
   },
   {
     slug: "r-data-analysis",
+    status: "COMING_SOON",
     title: "Data Analysis with R Bootcamp",
     subtitle: "Become a Data Analyst using R, Tidyverse & Business Reporting",
     description:
@@ -1337,6 +1345,7 @@ export const coursesData = [
   },
   {
     slug: "ai-prompt-engineering",
+    status: "LIVE",
     title: "AI Prompt Engineering Bootcamp",
     subtitle: "Become Job-Ready in AI Prompt Engineering in 4 Weeks",
     description:
@@ -1479,6 +1488,7 @@ export const coursesData = [
   },
   {
     slug: "html-css-js-front-end",
+    status: "COMING_SOON",
     title: "HTML CSS & JS Job-Ready Bootcamp",
     subtitle: "Become a Job-Ready Front-End Developer in 12 Weeks",
     description:
@@ -1635,6 +1645,7 @@ export const coursesData = [
   },
   {
     slug: "data-engineering",
+    status: "COMING_SOON",
     title: "Data Engineering Job-Ready Bootcamp",
     subtitle: "Master Data Pipelines, Snowflake, Airflow & Production Systems",
     description:
@@ -1762,6 +1773,7 @@ export const coursesData = [
   },
   {
     slug: "deep-learning",
+    status: "COMING_SOON",
     title: "Deep Learning Job-Ready Bootcamp",
     subtitle: "Build Neural Networks, Computer Vision & Modern AI Systems",
     description:
@@ -1882,6 +1894,7 @@ export const coursesData = [
   },
   {
     slug: "cybersecurity",
+    status: "COMING_SOON",
     title: "Cybersecurity Job-Ready Bootcamp",
     subtitle: "Protect Systems, Detect Threats & Handle Security Incidents",
     description:
